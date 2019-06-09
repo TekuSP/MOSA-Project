@@ -24,6 +24,8 @@ namespace Mosa.Utility.Launcher
 
 		public string Mkisofs { get; set; }
 
+		public string MsBuild { get; set; }
+
 		public string GDB { get; set; }
 
 		// TODO: The following methods should be placed in another class, possibly as a class extension
@@ -147,22 +149,23 @@ namespace Mosa.Utility.Launcher
 				);
 			}
 
-			if (string.IsNullOrEmpty(BOCHSBIOSDirectory))
+			if (string.IsNullOrEmpty(BOCHSBIOSDirectory) && !string.IsNullOrEmpty(BOCHS))
 			{
-				BOCHSBIOSDirectory = Path.GetDirectoryName(
-					TryFind(
+				var dir = TryFind(
 						new string[] { "BIOS-bochs-latest" },
 						new string[] {
-								Path.GetDirectoryName(BOCHS),
-								"/usr/share/bochs/"
+											Path.GetDirectoryName(BOCHS),
+											"/usr/share/bochs/"
 						},
 						new string[]
 						{
-								@"..\packages",
-								@"..\..\packages",
+											@"..\packages",
+											@"..\..\packages",
 						}
-					)
-				);
+					);
+
+				if (!string.IsNullOrEmpty(dir))
+					BOCHSBIOSDirectory = Path.GetDirectoryName(dir);
 			}
 
 			if (string.IsNullOrEmpty(VMwarePlayer))
@@ -229,6 +232,24 @@ namespace Mosa.Utility.Launcher
 						@"..\..\packages",
 					}
 				);
+			}
+
+			if (string.IsNullOrEmpty(MsBuild))
+			{
+				MsBuild = TryFind(
+					new string[] { "msbuild.exe", "msbuild" },
+					new string[] {
+						CombineParameterAndDirectory("ProgramFiles(x86)", @"Microsoft Visual Studio\2017\BuildTools\MSBuild\15.0\Bin\amd64"),
+						CombineParameterAndDirectory("ProgramFiles(x86)", @"Microsoft Visual Studio\2017\Enterprise\MSBuild\15.0\Bin\amd64"),
+						CombineParameterAndDirectory("ProgramFiles(x86)", @"Microsoft Visual Studio\2017\Enterprise\MSBuild\15.0\Bin"),
+						CombineParameterAndDirectory("ProgramFiles(x86)", @"Microsoft Visual Studio\2017\Community\MSBuild\15.0\Bin\amd64"),
+						CombineParameterAndDirectory("ProgramFiles(x86)", @"Microsoft Visual Studio\2017\Community\MSBuild\15.0\Bin"),
+						CombineParameterAndDirectory("SYSTEMROOT", @"Microsoft.NET\Framework64\v4.0.30319"),
+						CombineParameterAndDirectory("SYSTEMROOT", @"Microsoft.NET\Framework\v4.0.30319")
+					}
+				);
+				if (string.IsNullOrEmpty(MsBuild))
+					MsBuild = "msbuild";
 			}
 		}
 

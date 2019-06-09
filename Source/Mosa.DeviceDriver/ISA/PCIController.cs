@@ -16,16 +16,15 @@ namespace Mosa.DeviceDriver.ISA
 
 		#endregion Definitions
 
-
 		/// <summary>
 		/// The configuration address
 		/// </summary>
-		protected IOPortReadWrite configAddress;
+		protected BaseIOPortReadWrite configAddress;
 
 		/// <summary>
 		/// The configuration data
 		/// </summary>
-		protected IOPortReadWrite configData;
+		protected BaseIOPortReadWrite configData;
 
 		public override void Initialize()
 		{
@@ -45,10 +44,7 @@ namespace Mosa.DeviceDriver.ISA
 
 			var found = configAddress.Read32() == BaseValue;
 
-			if (!found)
-			{
-				Device.Status = DeviceStatus.NotFound;
-			}
+			Device.Status = (found) ? DeviceStatus.Available : DeviceStatus.NotFound;
 		}
 
 		public override void Start()

@@ -1,5 +1,7 @@
 // Copyright (c) MOSA Project. Licensed under the New BSD License.
 
+using System;
+
 namespace Mosa.DeviceSystem
 {
 	/// <summary>
@@ -52,9 +54,9 @@ namespace Mosa.DeviceSystem
 		/// </summary>
 		/// <param name="port">The port number.</param>
 		/// <returns></returns>
-		internal static IOPortReadWrite RequestReadWriteIOPort(ushort port)
+		internal static BaseIOPortReadWrite GetReadWriteIOPort(ushort port)
 		{
-			return hardwareAbstraction.RequestReadWriteIOPort(port);
+			return hardwareAbstraction.GetReadWriteIOPort(port);
 		}
 
 		/// <summary>
@@ -62,9 +64,9 @@ namespace Mosa.DeviceSystem
 		/// </summary>
 		/// <param name="port">The port number.</param>
 		/// <returns></returns>
-		internal static IOPortRead RequestReadIOPort(ushort port)
+		internal static BaseIOPortRead GetReadIOPort(ushort port)
 		{
-			return hardwareAbstraction.RequestReadIOPort(port);
+			return hardwareAbstraction.GetReadIOPort(port);
 		}
 
 		/// <summary>
@@ -72,9 +74,9 @@ namespace Mosa.DeviceSystem
 		/// </summary>
 		/// <param name="port">The port number.</param>
 		/// <returns></returns>
-		internal static IOPortWrite RequestWriteIOPort(ushort port)
+		internal static BaseIOPortWrite GetWriteIOPort(ushort port)
 		{
-			return hardwareAbstraction.RequestWriteIOPort(port);
+			return hardwareAbstraction.GetWriteIOPort(port);
 		}
 
 		/// <summary>
@@ -83,9 +85,9 @@ namespace Mosa.DeviceSystem
 		/// <param name="address">The address.</param>
 		/// <param name="size">The size.</param>
 		/// <returns></returns>
-		public static Memory RequestPhysicalMemory(uint address, uint size)
+		public static ConstrainedPointer GetPhysicalMemory(IntPtr address, uint size)
 		{
-			return hardwareAbstraction.RequestPhysicalMemory(address, size);
+			return hardwareAbstraction.GetPhysicalMemory(address, size);
 		}
 
 		/// <summary>
@@ -119,9 +121,9 @@ namespace Mosa.DeviceSystem
 		/// <param name="size">The size.</param>
 		/// <param name="alignment">The alignment.</param>
 		/// <returns></returns>
-		public static Memory AllocateMemory(uint size, uint alignment)
+		public static ConstrainedPointer AllocateMemory(uint size, uint alignment)
 		{
-			return hardwareAbstraction.AllocateMemory(size, alignment);
+			return hardwareAbstraction.AllocateVirtualMemory(size, alignment);
 		}
 
 		/// <summary>
@@ -129,9 +131,9 @@ namespace Mosa.DeviceSystem
 		/// </summary>
 		/// <param name="memory">The memory.</param>
 		/// <returns></returns>
-		public static uint GetPhysicalAddress(Memory memory)
+		public static IntPtr TranslateVirtualToPhysicalAddress(IntPtr memory)
 		{
-			return hardwareAbstraction.GetPhysicalAddress(memory);
+			return hardwareAbstraction.TranslateVirtualToPhysicalAddress(memory);
 		}
 
 		/// <summary>

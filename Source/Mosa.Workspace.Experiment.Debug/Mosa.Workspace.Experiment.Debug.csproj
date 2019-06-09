@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Mosa.Workspace.Experiment.Debug</RootNamespace>
     <AssemblyName>Mosa.Workspace.Experiment.Debug</AssemblyName>
-    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
   </PropertyGroup>
@@ -25,6 +25,7 @@
     <Prefer32Bit>false</Prefer32Bit>
     <NoWarn>162</NoWarn>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <LangVersion>7.2</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugSymbols>True</DebugSymbols>
@@ -37,6 +38,7 @@
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
     <NoWarn>162</NoWarn>
+    <LangVersion>7.2</LangVersion>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject>Mosa.Workspace.Experiment.Debug.Program</StartupObject>
@@ -49,6 +51,10 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Mosa.Compiler.Common\Mosa.Compiler.Common.csproj">
+      <Project>{0B1011A6-8FCD-4F9E-BBB8-8DB86E23D2E8}</Project>
+      <Name>Mosa.Compiler.Common</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Mosa.Compiler.Framework\Mosa.Compiler.Framework.csproj">
       <Project>{75a12a8a-8c8f-4d1e-801b-689d8f781bf4}</Project>
       <Name>Mosa.Compiler.Framework</Name>
@@ -60,6 +66,10 @@
     <ProjectReference Include="..\Mosa.Platform.ARMv6\Mosa.Platform.ARMv6.csproj">
       <Project>{0FB92651-3EE8-441D-84F2-C4DFDA68E8A5}</Project>
       <Name>Mosa.Platform.ARMv6</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Mosa.Platform.x64\Mosa.Platform.x64.csproj">
+      <Project>{f445db8e-e25a-41ef-a158-c742f14e94e4}</Project>
+      <Name>Mosa.Platform.x64</Name>
     </ProjectReference>
     <ProjectReference Include="..\Mosa.Platform.x86\Mosa.Platform.x86.csproj">
       <Project>{DE30CBE9-50F3-4A3E-BCC9-A8A36348530E}</Project>

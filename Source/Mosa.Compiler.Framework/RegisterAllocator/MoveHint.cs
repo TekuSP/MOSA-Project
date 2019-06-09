@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Mosa.Compiler.Framework.RegisterAllocator
 {
-	internal class MoveHint
+	public sealed class MoveHint
 	{
 		public readonly SlotIndex Slot;
 		public readonly VirtualRegister From;
@@ -61,7 +61,7 @@ namespace Mosa.Compiler.Framework.RegisterAllocator
 
 		public void Update(LiveInterval interval)
 		{
-			LiveInterval updateInterval = interval.AssignedPhysicalRegister == null ? null : interval;
+			var updateInterval = interval.AssignedPhysicalRegister == null ? null : interval;
 
 			if (interval.VirtualRegister == From)
 			{
@@ -76,7 +76,7 @@ namespace Mosa.Compiler.Framework.RegisterAllocator
 
 		public override string ToString()
 		{
-			StringBuilder sb = new StringBuilder();
+			var sb = new StringBuilder();
 
 			sb.Append(Slot.ToString());
 

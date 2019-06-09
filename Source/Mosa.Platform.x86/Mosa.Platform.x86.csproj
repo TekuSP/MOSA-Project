@@ -13,7 +13,7 @@
     <DefaultClientScript>JScript</DefaultClientScript>
     <DefaultHTMLPageLayout>Grid</DefaultHTMLPageLayout>
     <DefaultTargetSchema>IE50</DefaultTargetSchema>
-    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>
     </AppDesignerFolder>
@@ -42,6 +42,7 @@
     <DebugType>full</DebugType>
     <NoWarn>0414</NoWarn>
     <Prefer32Bit>false</Prefer32Bit>
+    <LangVersion>7.2</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugSymbols>True</DebugSymbols>
@@ -60,6 +61,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningLevel>2</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
+    <LangVersion>7.2</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -267,6 +269,12 @@
     <Compile Include="Instructions\XChg32.cs" />
     <Compile Include="Instructions\XChgLoad32.cs" />
     <Compile Include="Instructions\Xor32.cs" />
+    <Compile Include="Intrinsic\Roundsd2Positive.cs" />
+    <Compile Include="Intrinsic\Roundsd2Negative.cs" />
+    <Compile Include="Intrinsic\Roundss2Positive.cs" />
+    <Compile Include="Intrinsic\Roundss2Negative.cs" />
+    <Compile Include="Intrinsic\Sqrtss.cs" />
+    <Compile Include="Intrinsic\Sqrtsd.cs" />
     <Compile Include="Intrinsic\GetIRQHandler.cs" />
     <Compile Include="Intrinsic\IRQs.cs" />
     <Compile Include="Intrinsic\XAddLoad32.cs" />
@@ -284,7 +292,6 @@
     <Compile Include="Intrinsic\GetCS.cs" />
     <Compile Include="Intrinsic\GetFS.cs" />
     <Compile Include="Intrinsic\GetExceptionRegister.cs" />
-    <Compile Include="Intrinsic\GetMethodExceptionLookupTable.cs" />
     <Compile Include="Intrinsic\GetMultibootEAX.cs" />
     <Compile Include="Intrinsic\GetMultibootEBX.cs" />
     <Compile Include="Intrinsic\Int.cs" />
@@ -313,7 +320,6 @@
     <Compile Include="Stages\AddressModeConversionStage.cs" />
     <Compile Include="Stages\FixedRegisterAssignmentStage.cs" />
     <Compile Include="Intrinsic\GetEBP.cs" />
-    <Compile Include="Intrinsic\GetMethodLookupTable.cs" />
     <Compile Include="Intrinsic\Cli.cs" />
     <Compile Include="Intrinsic\GetCR0.cs" />
     <Compile Include="Intrinsic\GetCR2.cs" />

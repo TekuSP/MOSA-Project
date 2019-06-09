@@ -17,7 +17,7 @@ namespace Mosa.Utility.UnitTests
 {
 	public class UnitTestEngine : IBuilderEvent, IStarterEvent, IDisposable
 	{
-		public Options Options { get; }
+		public LauncherOptions LauncherOptions { get; }
 		public string TestAssemblyPath { get; set; }
 		public string Platform { get; set; }
 		public string TestSuiteFile { get; set; }
@@ -53,9 +53,9 @@ namespace Mosa.Utility.UnitTests
 		private int SendOneCount = -1;
 		private int Errors = 0;
 
-		public UnitTestEngine()
+		public UnitTestEngine(bool display = false)
 		{
-			Options = new Options()
+			LauncherOptions = new LauncherOptions()
 			{
 				EnableSSA = true,
 				EnableIROptimizations = true,
@@ -64,6 +64,9 @@ namespace Mosa.Utility.UnitTests
 				EnableIRLongExpansion = true,
 				EnableValueNumbering = true,
 				TwoPassOptimizations = true,
+				EnableMethodScanner = false,
+				EnableBitTracker = true,
+				EnableMultiThreading = false,
 
 				Emulator = EmulatorType.Qemu,
 				ImageFormat = ImageFormat.IMG,
@@ -73,7 +76,6 @@ namespace Mosa.Utility.UnitTests
 				EmulatorMemoryInMB = 128,
 				DestinationDirectory = Path.Combine(Path.GetTempPath(), "MOSA-UnitTest"),
 				FileSystem = FileSystem.FAT16,
-				UseMultiThreadingCompiler = false,
 				InlinedIRMaximum = 12,
 				BootLoader = BootLoader.Syslinux_3_72,
 				VBEVideo = false,
@@ -83,7 +85,6 @@ namespace Mosa.Utility.UnitTests
 				BaseAddress = 0x00500000,
 				EmitStaticRelocations = false,
 				EmitAllSymbols = false,
-				Emitx86IRQMethods = true,
 				SerialConnectionOption = SerialConnectionOption.TCPServer,
 				SerialConnectionPort = 9999,
 				SerialConnectionHost = "127.0.0.1",
@@ -92,8 +93,9 @@ namespace Mosa.Utility.UnitTests
 				GenerateNASMFile = false,
 				GenerateASMFile = true,
 				GenerateMapFile = true,
-				GenerateDebugFile = false,
-				PlugKorlib = true
+				GenerateDebugFile = true,
+				PlugKorlib = true,
+				NoDisplay = !display
 			};
 
 			AppLocations = new AppLocations();
@@ -253,16 +255,16 @@ namespace Mosa.Utility.UnitTests
 
 		public bool Compile()
 		{
-			Options.Paths.Add(TestAssemblyPath);
-			Options.SourceFile = Path.Combine(TestAssemblyPath, TestSuiteFile);
+			LauncherOptions.Paths.Add(TestAssemblyPath);
+			LauncherOptions.SourceFile = Path.Combine(TestAssemblyPath, TestSuiteFile);
 
-			var builder = new Builder(Options, AppLocations, this);
+			var builder = new Builder(LauncherOptions, AppLocations, this);
 
 			builder.Compile();
 
 			Linker = builder.Linker;
 			TypeSystem = builder.TypeSystem;
-			ImageFile = Options.BootLoaderImage ?? builder.ImageFile;
+			ImageFile = LauncherOptions.BootLoaderImage ?? builder.ImageFile;
 
 			return !builder.HasCompileError;
 		}
@@ -271,11 +273,11 @@ namespace Mosa.Utility.UnitTests
 		{
 			if (Starter == null)
 			{
-				Options.ImageFile = ImageFile;
-				Starter = new Starter(Options, AppLocations, this);
+				LauncherOptions.ImageFile = ImageFile;
+				Starter = new Starter(LauncherOptions, AppLocations, this);
 			}
 
-			Options.SerialConnectionPort++;
+			LauncherOptions.SerialConnectionPort++;
 
 			Process = Starter.Launch();
 
@@ -290,8 +292,10 @@ namespace Mosa.Utility.UnitTests
 				DebugServerEngine.SetGlobalDispatch(GlobalDispatch);
 			}
 
-			for (int attempt = 0; attempt < 25; attempt++)
+			for (int attempt = 0; attempt < 100; attempt++)
 			{
+				Thread.Sleep(100);
+
 				if (DebugServerEngine.IsConnected)
 					return true;
 
@@ -302,23 +306,23 @@ namespace Mosa.Utility.UnitTests
 				catch
 				{
 				}
-
-				Thread.Sleep(50);
 			}
+
+			Console.Write("Unable to connect to DebugEngine");
 
 			return false;
 		}
 
 		private void Connect()
 		{
-			if (Options.SerialConnectionOption == SerialConnectionOption.TCPServer)
+			if (LauncherOptions.SerialConnectionOption == SerialConnectionOption.TCPServer)
 			{
-				var client = new TcpClient(Options.SerialConnectionHost, Options.SerialConnectionPort);
+				var client = new TcpClient(LauncherOptions.SerialConnectionHost, LauncherOptions.SerialConnectionPort);
 				DebugServerEngine.Stream = new DebugNetworkStream(client.Client, true);
 			}
-			else if (Options.SerialConnectionOption == SerialConnectionOption.Pipe)
+			else if (LauncherOptions.SerialConnectionOption == SerialConnectionOption.Pipe)
 			{
-				var pipeStream = new NamedPipeClientStream(".", Options.SerialPipeName, PipeDirection.InOut);
+				var pipeStream = new NamedPipeClientStream(".", LauncherOptions.SerialPipeName, PipeDirection.InOut);
 				pipeStream.Connect();
 				DebugServerEngine.Stream = pipeStream;
 			}
@@ -339,7 +343,7 @@ namespace Mosa.Utility.UnitTests
 
 		private bool WaitForReady()
 		{
-			for (int attempt = 0; attempt < 400; attempt++)
+			for (int attempt = 0; attempt < 100; attempt++)
 			{
 				if (Ready)
 				{
@@ -347,7 +351,7 @@ namespace Mosa.Utility.UnitTests
 					return true;
 				}
 
-				Thread.Sleep(10);
+				Thread.Sleep(100);
 			}
 
 			return false;

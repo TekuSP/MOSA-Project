@@ -68,7 +68,7 @@ namespace Mosa.Compiler.Framework.Stages
 			{
 				for (var node = BasicBlocks[i].First; !node.IsBlockEndInstruction; node = node.Next)
 				{
-					if (node.IsEmpty)
+					if (node.IsEmptyOrNop)
 						continue;
 
 					if (dispatches.TryGetValue(node.Instruction, out Dispatch dispatch))
@@ -96,7 +96,7 @@ namespace Mosa.Compiler.Framework.Stages
 
 			var ctx = new Context(node);
 
-			ctx.SetInstruction(Select(IRInstruction.MoveInt32, IRInstruction.MoveInt64), leaveTargetRegister, CreateConstant(target.Label));
+			ctx.SetInstruction(Select(leaveTargetRegister, IRInstruction.MoveInt32, IRInstruction.MoveInt64), leaveTargetRegister, CreateConstant(target.Label));
 		}
 
 		private void ExceptionStartInstruction(InstructionNode node)
@@ -106,7 +106,7 @@ namespace Mosa.Compiler.Framework.Stages
 
 			ctx.SetInstruction(IRInstruction.KillAll);
 			ctx.AppendInstruction(IRInstruction.Gen, exceptionRegister);
-			ctx.AppendInstruction(Select(IRInstruction.MoveInt32, IRInstruction.MoveInt64), exceptionVirtualRegister, exceptionRegister);
+			ctx.AppendInstruction(Select(exceptionVirtualRegister, IRInstruction.MoveInt32, IRInstruction.MoveInt64), exceptionVirtualRegister, exceptionRegister);
 		}
 
 		private void FinallyEndInstruction(InstructionNode node)
@@ -125,8 +125,10 @@ namespace Mosa.Compiler.Framework.Stages
 
 			var method = PlatformInternalRuntimeType.FindMethodByName("ExceptionHandler");
 
-			newBlocks[0].AppendInstruction(Select(IRInstruction.MoveInt32, IRInstruction.MoveInt64), exceptionRegister, exceptionVirtualRegister);
+			newBlocks[0].AppendInstruction(Select(exceptionRegister, IRInstruction.MoveInt32, IRInstruction.MoveInt64), exceptionRegister, exceptionVirtualRegister);
 			newBlocks[0].AppendInstruction(IRInstruction.CallStatic, null, Operand.CreateSymbolFromMethod(method, TypeSystem));
+
+			MethodScanner.MethodInvoked(method, Method);
 		}
 
 		private void FinallyStartInstruction(InstructionNode node)
@@ -144,8 +146,8 @@ namespace Mosa.Compiler.Framework.Stages
 			ctx.AppendInstruction(IRInstruction.Gen, exceptionRegister);
 			ctx.AppendInstruction(IRInstruction.Gen, leaveTargetRegister);
 
-			ctx.AppendInstruction(Select(IRInstruction.MoveInt32, IRInstruction.MoveInt64), exceptionVirtualRegister, exceptionRegister);
-			ctx.AppendInstruction(Select(IRInstruction.MoveInt32, IRInstruction.MoveInt64), leaveTargetVirtualRegister, leaveTargetRegister);
+			ctx.AppendInstruction(Select(exceptionVirtualRegister, IRInstruction.MoveInt32, IRInstruction.MoveInt64), exceptionVirtualRegister, exceptionRegister);
+			ctx.AppendInstruction(Select(leaveTargetVirtualRegister, IRInstruction.MoveInt32, IRInstruction.MoveInt64), leaveTargetVirtualRegister, leaveTargetRegister);
 		}
 
 		private void ThrowInstruction(InstructionNode node)
@@ -153,10 +155,12 @@ namespace Mosa.Compiler.Framework.Stages
 			var method = PlatformInternalRuntimeType.FindMethodByName("ExceptionHandler");
 			var ctx = new Context(node);
 
-			ctx.SetInstruction(Select(IRInstruction.MoveInt32, IRInstruction.MoveInt64), exceptionRegister, node.Operand1);
+			ctx.SetInstruction(Select(exceptionRegister, IRInstruction.MoveInt32, IRInstruction.MoveInt64), exceptionRegister, node.Operand1);
 
 			//ctx.AppendInstruction(IRInstruction.KillAllExcept, null, exceptionRegister);
 			ctx.AppendInstruction(IRInstruction.CallStatic, null, Operand.CreateSymbolFromMethod(method, TypeSystem));
+
+			MethodScanner.MethodInvoked(method, Method);
 		}
 
 		private void GotoLeaveTargetInstruction(InstructionNode node)
@@ -165,7 +169,7 @@ namespace Mosa.Compiler.Framework.Stages
 
 			// clear exception register
 			// FIXME: This will need to be preserved for filtered exceptions; will need a flag to know this - maybe an upper bit of leaveTargetRegister
-			ctx.SetInstruction(Select(IRInstruction.MoveInt32, IRInstruction.MoveInt64), exceptionRegister, nullOperand);
+			ctx.SetInstruction(Select(exceptionRegister, IRInstruction.MoveInt32, IRInstruction.MoveInt64), exceptionRegister, nullOperand);
 
 			var label = node.Label;
 			var exceptionContext = FindImmediateExceptionContext(label);
@@ -265,19 +269,18 @@ namespace Mosa.Compiler.Framework.Stages
 
 			foreach (var block in BasicBlocks)
 			{
-				var context = new Context(block.Last);
+				var node = block.BeforeLast;
 
-				while (context.IsEmpty
-					|| context.IsBlockEndInstruction
-					|| context.Instruction == IRInstruction.Flow
-					|| context.Instruction == IRInstruction.GotoLeaveTarget)
+				while (node.IsEmptyOrNop
+					|| node.Instruction == IRInstruction.Flow
+					|| node.Instruction == IRInstruction.GotoLeaveTarget)
 				{
-					context.GotoPrevious();
+					node = node.Previous;
 				}
 
-				if (context.Instruction == IRInstruction.SetLeaveTarget)
+				if (node.Instruction == IRInstruction.SetLeaveTarget)
 				{
-					leaveTargets.Add(new Tuple<BasicBlock, BasicBlock>(context.BranchTargets[0], block));
+					leaveTargets.Add(new Tuple<BasicBlock, BasicBlock>(node.BranchTargets[0], block));
 				}
 			}
 

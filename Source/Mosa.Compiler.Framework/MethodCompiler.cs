@@ -2,7 +2,6 @@
 
 using Mosa.Compiler.Common;
 using Mosa.Compiler.Framework.Analysis;
-using Mosa.Compiler.Framework.CompilerStages;
 using Mosa.Compiler.Framework.IR;
 using Mosa.Compiler.Framework.Linker;
 using Mosa.Compiler.Framework.Trace;
@@ -24,19 +23,11 @@ namespace Mosa.Compiler.Framework
 		#region Data Members
 
 		/// <summary>
-		/// Holds the type initializer scheduler stage
-		/// </summary>
-		private TypeInitializerSchedulerStage typeInitializer;
-
-		/// <summary>
 		/// The empty operand list
 		/// </summary>
 		private static readonly Operand[] emptyOperandList = new Operand[0];
 
-		/// <summary>
-		/// Holds flag that will stop method compiler
-		/// </summary>
-		public bool IsStopped { get; private set; }
+		private readonly Stopwatch Stopwatch;
 
 		#endregion Data Members
 
@@ -58,11 +49,6 @@ namespace Mosa.Compiler.Framework
 		public MosaMethod Method { get; }
 
 		/// <summary>
-		/// Gets the owner type of the method.
-		/// </summary>
-		public MosaType Type { get; }
-
-		/// <summary>
 		/// Gets the basic blocks.
 		/// </summary>
 		/// <value>The basic blocks.</value>
@@ -72,7 +58,7 @@ namespace Mosa.Compiler.Framework
 		/// Retrieves the compilation scheduler.
 		/// </summary>
 		/// <value>The compilation scheduler.</value>
-		public CompilationScheduler Scheduler { get; }
+		public MethodScheduler MethodScheduler { get; }
 
 		/// <summary>
 		/// Provides access to the pipeline of this compiler.
@@ -151,7 +137,7 @@ namespace Mosa.Compiler.Framework
 		/// <summary>
 		/// Gets the compiler method data.
 		/// </summary>
-		public CompilerMethodData MethodData { get; }
+		public MethodData MethodData { get; }
 
 		/// <summary>
 		/// The stack frame
@@ -164,17 +150,19 @@ namespace Mosa.Compiler.Framework
 		public Operand StackPointer { get; }
 
 		/// <summary>
-		/// The constant zero
+		/// Gets the platform constant zero
 		/// </summary>
 		public Operand ConstantZero { get; }
 
 		/// <summary>
-		/// Gets a value indicating whether this instance is in SSA form.
+		/// Gets the 32-bit constant zero.
 		/// </summary>
-		/// <value>
-		///   <c>true</c> if this instance is in SSA form; otherwise, <c>false</c>.
-		/// </value>
-		public bool IsInSSAForm { get; set; }
+		public Operand ConstantZero32 { get; }
+
+		/// <summary>
+		/// Gets the 64-bit constant zero.
+		/// </summary>
+		public Operand ConstantZero64 { get; }
 
 		/// <summary>
 		/// Gets or sets a value indicating whether this instance is execute pipeline.
@@ -196,6 +184,26 @@ namespace Mosa.Compiler.Framework
 		/// </summary>
 		public bool IsStackFrameRequired { get; set; }
 
+		/// <summary>
+		/// Gets or sets a value indicating whether this instance is method inlined.
+		/// </summary>
+		public bool IsMethodInlined { get; set; }
+
+		/// <summary>
+		/// Holds flag that will stop method compiler
+		/// </summary>
+		public bool IsStopped { get; private set; }
+
+		/// <summary>
+		/// Gets the linker symbol.
+		/// </summary>
+		public LinkerSymbol Symbol { get; private set; }
+
+		/// <summary>
+		/// Gets the method scanner.
+		/// </summary>
+		public MethodScanner MethodScanner { get; }
+
 		#endregion Properties
 
 		#region Construction
@@ -209,15 +217,17 @@ namespace Mosa.Compiler.Framework
 		/// <param name="threadID">The thread identifier.</param>
 		public MethodCompiler(Compiler compiler, MosaMethod method, BasicBlocks basicBlocks, int threadID)
 		{
+			Stopwatch = Stopwatch.StartNew();
+
 			Compiler = compiler;
 			Method = method;
-			Type = method.DeclaringType;
-			Scheduler = compiler.CompilationScheduler;
+			MethodScheduler = compiler.MethodScheduler;
 			Architecture = compiler.Architecture;
 			TypeSystem = compiler.TypeSystem;
 			TypeLayout = compiler.TypeLayout;
 			Trace = compiler.CompilerTrace;
 			Linker = compiler.Linker;
+			MethodScanner = compiler.MethodScanner;
 
 			BasicBlocks = basicBlocks ?? new BasicBlocks();
 			LocalStack = new List<Operand>();
@@ -226,23 +236,32 @@ namespace Mosa.Compiler.Framework
 			StackFrame = Operand.CreateCPURegister(TypeSystem.BuiltIn.Pointer, Architecture.StackFrameRegister);
 			StackPointer = Operand.CreateCPURegister(TypeSystem.BuiltIn.Pointer, Architecture.StackPointerRegister);
 			Parameters = new Operand[method.Signature.Parameters.Count + (method.HasThis || method.HasExplicitThis ? 1 : 0)];
-			ConstantZero = Architecture.Is32BitPlatform ? CreateConstant((uint)0) : CreateConstant((ulong)0);
+
+			ConstantZero32 = CreateConstant((uint)0);
+			ConstantZero64 = CreateConstant((ulong)0);
+			ConstantZero = Architecture.Is32BitPlatform ? ConstantZero32 : ConstantZero64;
 
 			LocalVariables = emptyOperandList;
 			ThreadID = threadID;
 
 			IsStopped = false;
-			IsInSSAForm = false;
 			IsExecutePipeline = true;
 			IsCILDecodeRequired = true;
 			IsStackFrameRequired = true;
+			IsMethodInlined = false;
 
-			MethodData = compiler.CompilerData.GetCompilerMethodData(Method);
+			MethodData = compiler.CompilerData.GetMethodData(Method);
+
 			MethodData.Counters.Reset();
+
+			// Both defines the symbol and also clears the data
+			Symbol = Linker.DefineSymbol(Method.FullName, SectionKind.Text, 0, 0);
 
 			EvaluateParameterOperands();
 
 			CalculateMethodParameterSize();
+
+			MethodData.Counters.NewCountSkipLock("ExecutionTime.Setup.Ticks", (int)Stopwatch.ElapsedTicks);
 		}
 
 		#endregion Construction
@@ -322,9 +341,9 @@ namespace Mosa.Compiler.Framework
 
 			if (Method.HasThis || Method.HasExplicitThis)
 			{
-				if (Type.IsValueType)
+				if (Method.DeclaringType.IsValueType)
 				{
-					var ptr = Type.ToManagedPointer();
+					var ptr = Method.DeclaringType.ToManagedPointer();
 					SetStackParameter(index++, ptr, "this", true, offset);
 
 					var size = GetReferenceOrTypeSize(ptr, true);
@@ -332,9 +351,9 @@ namespace Mosa.Compiler.Framework
 				}
 				else
 				{
-					SetStackParameter(index++, Type, "this", true, offset);
+					SetStackParameter(index++, Method.DeclaringType, "this", true, offset);
 
-					var size = GetReferenceOrTypeSize(Type, true);
+					var size = GetReferenceOrTypeSize(Method.DeclaringType, true);
 					offset += size;
 				}
 			}
@@ -369,11 +388,14 @@ namespace Mosa.Compiler.Framework
 
 			ExecutePipeline();
 
-			InitializeType();
+			//Symbol.SetReplacementStatus(MethodData.Inlined);	// TOTO
 
-			var log = new TraceLog(TraceType.Counters, Method, string.Empty, Trace.TraceFilter.Active);
-			log.Log(MethodData.Counters.Export());
-			Trace.TraceListener.OnNewTraceLog(log);
+			if (Compiler.CompilerOptions.EnableStatistics)
+			{
+				var log = new TraceLog(TraceType.MethodCounters, Method, string.Empty);
+				log.Log(MethodData.Counters.Export());
+				Trace.PostTraceLog(log);
+			}
 		}
 
 		private void ExecutePipeline()
@@ -381,17 +403,57 @@ namespace Mosa.Compiler.Framework
 			if (!IsExecutePipeline)
 				return;
 
-			int position = 0;
+			var executionTimes = new long[Pipeline.Count];
 
-			foreach (var stage in Pipeline)
+			var startTicks = Stopwatch.ElapsedTicks;
+
+			for (int i = 0; i < Pipeline.Count; i++)
 			{
-				stage.Setup(this, ++position);
+				var stage = Pipeline[i];
+
+				stage.Setup(this, i);
 				stage.Execute();
+
+				executionTimes[i] = Stopwatch.ElapsedTicks;
 
 				InstructionLogger.Run(this, stage);
 
-				if (IsStopped)
+				if (IsStopped/* || IsMethodInlined*/)   // TOTO
 					break;
+			}
+
+			if (Compiler.CompilerOptions.EnableStatistics && !IsStopped)
+			{
+				var totalTicks = Stopwatch.ElapsedTicks;
+
+				MethodData.ElapsedTicks = totalTicks;
+
+				MethodData.Counters.NewCountSkipLock("ExecutionTime.StageStart.Ticks", (int)startTicks);
+				MethodData.Counters.NewCountSkipLock("ExecutionTime.Total.Ticks", (int)totalTicks);
+
+				var executionTimeLog = new TraceLog(TraceType.MethodDebug, Method, "Execution Time/Ticks");
+
+				long previousTicks = startTicks;
+
+				for (int i = 0; i < Pipeline.Count; i++)
+				{
+					var pipelineTicks = executionTimes[i];
+					var ticks = pipelineTicks == 0 ? 0 : pipelineTicks - previousTicks;
+					var percentage = (ticks * 100) / (double)(totalTicks - startTicks);
+					previousTicks = pipelineTicks;
+
+					int per = (int)percentage / 5;
+
+					var entry = $"[{i:00}] {Pipeline[i].Name.PadRight(45)} : {percentage:00.00} % [{string.Empty.PadRight(per, '#').PadRight(20, ' ')}] ({ticks})";
+
+					executionTimeLog.Log(entry);
+
+					MethodData.Counters.NewCountSkipLock($"ExecutionTime.{i:00}.{Pipeline[i].Name}.Ticks", (int)ticks);
+				}
+
+				executionTimeLog.Log($"{"****Total Time".PadRight(57)}({totalTicks})");
+
+				Trace.PostTraceLog(executionTimeLog);
 			}
 		}
 
@@ -402,22 +464,19 @@ namespace Mosa.Compiler.Framework
 			if (plugMethod == null)
 				return;
 
+			Compiler.MethodScanner.MethodInvoked(plugMethod, Method);
+
 			IsMethodPlugged = true;
-
-			Debug.Assert(plugMethod != null);
-
-			var plugSymbol = Operand.CreateSymbolFromMethod(plugMethod, TypeSystem);
-
-			var block = BasicBlocks.CreateBlock(BasicBlock.PrologueLabel);
-			BasicBlocks.AddHeadBlock(block);
-
-			var ctx = new Context(block);
-
-			ctx.AppendInstruction(IRInstruction.Jmp, null, plugSymbol);
-
 			IsCILDecodeRequired = false;
-			IsExecutePipeline = true;
+			IsExecutePipeline = false;
 			IsStackFrameRequired = false;
+
+			if (Trace.IsTraceable(5))
+			{
+				var traceLog = new TraceLog(TraceType.MethodInstructions, Method, "XX-Plugged Method");
+				traceLog?.Log($"Plugged by {plugMethod.FullName}");
+				Trace.PostTraceLog(traceLog);
+			}
 		}
 
 		private void PatchDelegate()
@@ -433,6 +492,13 @@ namespace Mosa.Compiler.Framework
 
 			IsCILDecodeRequired = false;
 			IsExecutePipeline = true;
+
+			if (Trace.IsTraceable(5))
+			{
+				var traceLog = new TraceLog(TraceType.MethodDebug, Method, "XX-Delegate Patched");
+				traceLog?.Log("This delegate method was patched");
+				Trace.PostTraceLog(traceLog);
+			}
 		}
 
 		private void ExternalMethod()
@@ -449,7 +515,15 @@ namespace Mosa.Compiler.Framework
 			if (intrinsic != null)
 				return;
 
-			Linker.DefineExternalSymbol(Method.FullName, Method.ExternMethodName, SectionKind.Text);
+			Symbol.ExternalSymbolName = Method.ExternMethodName;
+			Symbol.IsExternalSymbol = true;
+
+			if (Trace.IsTraceable(5))
+			{
+				var traceLog = new TraceLog(TraceType.MethodInstructions, Method, "XX-External Method");
+				traceLog?.Log($"This method is external linked: {Method.ExternMethodName}");
+				Trace.PostTraceLog(traceLog);
+			}
 		}
 
 		private void InternalMethod()
@@ -461,11 +535,12 @@ namespace Mosa.Compiler.Framework
 			IsExecutePipeline = false;
 			IsStackFrameRequired = false;
 
-			//var methodName = Method.DeclaringType.FullName + ":" + Method.Name;
-			//var intrinsic = Compiler.GetInstrincMethod(methodName);
-
-			//Method.ExternMethodModule;
-			//Method.ExternMethodName;
+			if (Trace.IsTraceable(5))
+			{
+				var traceLog = new TraceLog(TraceType.MethodInstructions, Method, "XX-External Method");
+				traceLog?.Log($"This method is an internal method");
+				Trace.PostTraceLog(traceLog);
+			}
 		}
 
 		/// <summary>
@@ -515,7 +590,7 @@ namespace Mosa.Compiler.Framework
 			else
 			{
 				operandLow = operand;
-				operandHigh = ConstantZero;
+				operandHigh = ConstantZero32;
 			}
 		}
 
@@ -578,22 +653,6 @@ namespace Mosa.Compiler.Framework
 			else
 			{
 				return Architecture.NativeAlignment;
-			}
-		}
-
-		/// <summary>
-		/// Initializes the type.
-		/// </summary>
-		private void InitializeType()
-		{
-			if (Method.IsSpecialName && Method.IsRTSpecialName && Method.IsStatic && Method.Name == ".cctor")
-			{
-				typeInitializer = Compiler.CompilerPipeline.FindFirst<TypeInitializerSchedulerStage>();
-
-				if (typeInitializer == null)
-					return;
-
-				typeInitializer.Schedule(Method);
 			}
 		}
 

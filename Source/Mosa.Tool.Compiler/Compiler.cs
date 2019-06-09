@@ -6,8 +6,8 @@ using Mosa.Compiler.Framework;
 using Mosa.Compiler.Framework.Trace.BuiltIn;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Diagnostics;
+using System.Text;
 
 namespace Mosa.Tool.Compiler
 {
@@ -18,7 +18,7 @@ namespace Mosa.Tool.Compiler
 	{
 		#region Data
 
-		protected MosaCompiler compiler = new MosaCompiler();
+		protected MosaCompiler compiler;
 
 		/// <summary>
 		/// Holds a reference to the Options parsed from the arguments.
@@ -50,6 +50,13 @@ Example: Mosa.Tool.Compiler.exe -o Mosa.HelloWorld.x86.bin -a x86 --mboot v1 --x
 
 		#endregion Constructors
 
+		private List<BaseCompilerExtension> GetCompilerExtensions()
+		{
+			var list = new List<BaseCompilerExtension>();
+			list.Add(new Mosa.Compiler.Extensions.Dwarf.DwarfCompilerExtension());
+			return list;
+		}
+
 		#region Public Methods
 
 		/// <summary>
@@ -60,7 +67,7 @@ Example: Mosa.Tool.Compiler.exe -o Mosa.HelloWorld.x86.bin -a x86 --mboot v1 --x
 		{
 			// always print header with version information
 			Console.WriteLine("MOSA AOT Compiler, Version {0}.{1} '{2}'", majorVersion, minorVersion, codeName);
-			Console.WriteLine("Copyright 2018 by the MOSA Project. Licensed under the New BSD License.");
+			Console.WriteLine("Copyright 2019 by the MOSA Project. Licensed under the New BSD License.");
 
 			Console.WriteLine();
 			Console.WriteLine("Parsing options...");
@@ -79,7 +86,7 @@ Example: Mosa.Tool.Compiler.exe -o Mosa.HelloWorld.x86.bin -a x86 --mboot v1 --x
 					throw new Exception("No input file(s) specified.");
 				}
 
-				compiler.CompilerOptions = options.CompilerOptions;
+				compiler = new MosaCompiler(options.CompilerOptions, GetCompilerExtensions());
 
 				Debug.Listeners.Add(new TextWriterTraceListener(Console.Out));
 				Debug.AutoFlush = true;
@@ -168,13 +175,13 @@ Example: Mosa.Tool.Compiler.exe -o Mosa.HelloWorld.x86.bin -a x86 --mboot v1 --x
 
 		private void Compile()
 		{
-			compiler.CompilerTrace.TraceListener = new ConsoleEventListener();
+			compiler.CompilerTrace.SetTraceListener(new ConsoleEventListener());
 
 			compiler.CompilerOptions.AddSourceFiles(options.InputFiles);
 
 			compiler.Load();
 
-			compiler.ExecuteThreaded();
+			compiler.ThreadedCompile();
 		}
 
 		/// <summary>

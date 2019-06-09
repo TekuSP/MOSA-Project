@@ -13,8 +13,7 @@
     <DefaultClientScript>JScript</DefaultClientScript>
     <DefaultHTMLPageLayout>Grid</DefaultHTMLPageLayout>
     <DefaultTargetSchema>IE50</DefaultTargetSchema>
-    <DelaySign>false</DelaySign>
-    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>
     </AppDesignerFolder>
@@ -43,6 +42,7 @@
     <DebugType>full</DebugType>
     <NoWarn>0414</NoWarn>
     <Prefer32Bit>false</Prefer32Bit>
+    <LangVersion>7.2</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugSymbols>True</DebugSymbols>
@@ -61,6 +61,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningLevel>2</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
+    <LangVersion>7.2</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Mosa.Compiler.Common\Mosa.Compiler.Common.csproj">
@@ -84,7 +85,6 @@
     <Compile Include="Architecture.cs" />
     <Compile Include="ArchitectureFeatureFlags.cs" />
     <Compile Include="BaseTransformationStage.cs" />
-    <Compile Include="CompilerStages\InterruptVectorStage.cs" />
     <Compile Include="CompilerStages\MultibootV1Stage.cs" />
     <Compile Include="Instructions\Adc32.cs" />
     <Compile Include="Instructions\Adc64.cs" />
@@ -342,8 +342,11 @@
     <Compile Include="Stages\FinalTweakStage.cs" />
     <Compile Include="Stages\FixedRegisterAssignmentStage.cs" />
     <Compile Include="Stages\FloatingPointStage.cs" />
+    <Compile Include="Stages\IRSubstitutionStage.cs" />
     <Compile Include="Stages\IRTransformationStage.cs" />
     <Compile Include="Stages\LongOperandStage.cs" />
+    <Compile Include="Stages\OptimizationStage.cs" />
+    <Compile Include="Stages\PostOptimizationStage.cs" />
     <Compile Include="Stages\SimpleDeadCodeRemovalStage.cs" />
     <Compile Include="Stages\TweakStage.cs" />
     <Compile Include="X64.cs" />

@@ -1,5 +1,7 @@
 // Copyright (c) MOSA Project. Licensed under the New BSD License.
 
+using System;
+
 namespace Mosa.DeviceSystem
 {
 	/// <summary>
@@ -8,33 +10,38 @@ namespace Mosa.DeviceSystem
 	public abstract class BaseHardwareAbstraction
 	{
 		/// <summary>
-		/// Requests an IO read/write port object from the kernel
+		/// Gets the size of the page.
+		/// </summary>
+		public abstract uint PageSize { get; }
+
+		/// <summary>
+		/// Gets an IO read/write port object from the kernel
 		/// </summary>
 		/// <param name="port">The port number.</param>
 		/// <returns></returns>
-		public abstract IOPortReadWrite RequestReadWriteIOPort(ushort port);
+		public abstract BaseIOPortReadWrite GetReadWriteIOPort(ushort port);
 
 		/// <summary>
-		/// Requests an IO read port object from the kernel
+		/// Gets an IO read port object from the kernel
 		/// </summary>
 		/// <param name="port">The port number.</param>
 		/// <returns></returns>
-		public abstract IOPortRead RequestReadIOPort(ushort port);
+		public abstract BaseIOPortRead GetReadIOPort(ushort port);
 
 		/// <summary>
-		/// Requests an IO write port object from the kernel
+		/// Gets an IO write port object from the kernel
 		/// </summary>
 		/// <param name="port">The port number.</param>
 		/// <returns></returns>
-		public abstract IOPortWrite RequestWriteIOPort(ushort port);
+		public abstract BaseIOPortWrite GetWriteIOPort(ushort port);
 
 		/// <summary>
-		/// Requests a block of memory from the kernel
+		/// Gets a block of memory from the kernel
 		/// </summary>
 		/// <param name="address">The address.</param>
 		/// <param name="size">The size.</param>
 		/// <returns></returns>
-		public abstract Memory RequestPhysicalMemory(uint address, uint size);
+		public abstract ConstrainedPointer GetPhysicalMemory(IntPtr address, uint size);
 
 		/// <summary>
 		/// Disables all interrupts.
@@ -59,19 +66,19 @@ namespace Mosa.DeviceSystem
 		public abstract void ProcessInterrupt(byte irq);
 
 		/// <summary>
-		/// Allocates the memory.
+		/// Allocates the virtual memory.
 		/// </summary>
 		/// <param name="size">The size.</param>
 		/// <param name="alignment">The alignment.</param>
 		/// <returns></returns>
-		public abstract Memory AllocateMemory(uint size, uint alignment);
+		public abstract ConstrainedPointer AllocateVirtualMemory(uint size, uint alignment);
 
 		/// <summary>
 		/// Gets the physical address.
 		/// </summary>
-		/// <param name="memory">The memory.</param>
+		/// <param name="virtualAddress"></param>
 		/// <returns></returns>
-		public abstract uint GetPhysicalAddress(Memory memory);
+		public abstract IntPtr TranslateVirtualToPhysicalAddress(IntPtr virtualAddress);
 
 		/// <summary>
 		/// Debugs the write.

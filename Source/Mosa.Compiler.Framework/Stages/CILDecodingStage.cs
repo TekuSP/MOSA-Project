@@ -67,7 +67,7 @@ namespace Mosa.Compiler.Framework.Stages
 				counts = new int[CILInstruction.MaxOpCodeValue];
 			}
 
-			MethodCompiler.SetLocalVariables(MethodCompiler.Method.LocalVariables);
+			MethodCompiler.SetLocalVariables(Method.LocalVariables);
 
 			// Create the prologue block
 			var prologue = CreateNewBlock(BasicBlock.PrologueLabel);
@@ -137,7 +137,7 @@ namespace Mosa.Compiler.Framework.Stages
 
 		private void DecodeProtectedRegionTargets()
 		{
-			foreach (var handler in MethodCompiler.Method.ExceptionHandlers)
+			foreach (var handler in Method.ExceptionHandlers)
 			{
 				if (handler.TryStart != 0)
 				{
@@ -166,9 +166,9 @@ namespace Mosa.Compiler.Framework.Stages
 		{
 			bool branched = false;
 
-			for (int i = 0; i < MethodCompiler.Method.Code.Count; i++)
+			for (int i = 0; i < Method.Code.Count; i++)
 			{
-				instruction = MethodCompiler.Method.Code[i];
+				instruction = Method.Code[i];
 
 				if (branched)
 				{
@@ -197,9 +197,9 @@ namespace Mosa.Compiler.Framework.Stages
 			// Prefix instruction
 			bool prefix = false;
 
-			for (int i = 0; i < MethodCompiler.Method.Code.Count; i++)
+			for (int i = 0; i < Method.Code.Count; i++)
 			{
-				instruction = MethodCompiler.Method.Code[i];
+				instruction = Method.Code[i];
 
 				block = BasicBlocks.GetByLabel(instruction.Offset) ?? block;
 
@@ -222,13 +222,13 @@ namespace Mosa.Compiler.Framework.Stages
 
 				//instructionCount++;
 
-				const bool addjmp = false;
+				//const bool addjmp = false;
 
 				var flow = node.Instruction.FlowControl;
 
 				if (flow == FlowControl.Next || flow == FlowControl.Call || flow == FlowControl.ConditionalBranch || flow == FlowControl.Switch)
 				{
-					var nextInstruction = MethodCompiler.Method.Code[i + 1];
+					var nextInstruction = Method.Code[i + 1];
 
 					if (BasicBlocks.GetByLabel(nextInstruction.Offset) != null)
 					{
@@ -268,14 +268,19 @@ namespace Mosa.Compiler.Framework.Stages
 		MosaMethod IInstructionDecoder.Method { get { return MethodCompiler.Method; } }
 
 		/// <summary>
-		/// Gets the Instruction being decoded.
+		/// Gets the type system.
 		/// </summary>
-		MosaInstruction IInstructionDecoder.Instruction { get { return instruction; } }
+		TypeSystem IInstructionDecoder.TypeSystem { get { return TypeSystem; } }
 
 		/// <summary>
 		/// Gets the type system.
 		/// </summary>
-		TypeSystem IInstructionDecoder.TypeSystem { get { return TypeSystem; } }
+		MethodScanner IInstructionDecoder.MethodScanner { get { return MethodCompiler.MethodScanner; } }
+
+		/// <summary>
+		/// Gets the Instruction being decoded.
+		/// </summary>
+		MosaInstruction IInstructionDecoder.Instruction { get { return instruction; } }
 
 		/// <summary>
 		/// Gets the block.
@@ -307,12 +312,13 @@ namespace Mosa.Compiler.Framework.Stages
 				index++;
 			}
 
-			var local = MethodCompiler.Method.LocalVariables[index];
+			var local = Method.LocalVariables[index];
 
 			var stackLocal = MethodCompiler.AddStackLocal(local.Type, local.IsPinned);
 
 			MethodCompiler.LocalVariables[index] = stackLocal;
 
+			//ReplaceOperand(virtualRegister, stackLocal);
 			foreach (var node in virtualRegister.Uses.ToArray())
 			{
 				for (int i = 0; i < node.OperandCount; i++)

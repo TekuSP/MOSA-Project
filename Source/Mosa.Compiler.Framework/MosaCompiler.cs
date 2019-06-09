@@ -10,15 +10,17 @@ namespace Mosa.Compiler.Framework
 {
 	public class MosaCompiler
 	{
-		public CompilerOptions CompilerOptions { get; set; } = new CompilerOptions();
+		public enum CompileStage { Initial, Loaded, Initialized, Ready, Executing, Completed }
 
-		public CompilerTrace CompilerTrace { get; } = new CompilerTrace();
+		public CompileStage Stage { get; private set; } = CompileStage.Initial;
+
+		public CompilerOptions CompilerOptions { get; }
+
+		public CompilerTrace CompilerTrace { get; }
 
 		public TypeSystem TypeSystem { get; private set; }
 
 		public MosaTypeLayout TypeLayout { get; private set; }
-
-		public CompilationScheduler CompilationScheduler { get; private set; }
 
 		public MosaLinker Linker { get; private set; }
 
@@ -28,9 +30,19 @@ namespace Mosa.Compiler.Framework
 
 		protected Compiler Compiler { get; private set; }
 
+		private readonly object _lock = new object();
+
 		public MosaCompiler(List<BaseCompilerExtension> compilerExtensions = null, int maxThreads = 0)
+			: this(null, compilerExtensions, maxThreads)
 		{
-			MaxThreads = (maxThreads == 0) ? Environment.ProcessorCount : maxThreads;
+		}
+
+		public MosaCompiler(CompilerOptions compilerOptions = null, List<BaseCompilerExtension> compilerExtensions = null, int maxThreads = 0)
+		{
+			MaxThreads = (maxThreads == 0) ? Environment.ProcessorCount + 1 : maxThreads;
+
+			CompilerOptions = compilerOptions ?? new CompilerOptions();
+			CompilerTrace = new CompilerTrace(CompilerOptions);
 
 			if (compilerExtensions != null)
 			{
@@ -40,79 +52,159 @@ namespace Mosa.Compiler.Framework
 
 		public void Load()
 		{
-			var moduleLoader = new MosaModuleLoader();
+			lock (_lock)
+			{
+				var moduleLoader = new MosaModuleLoader();
 
-			moduleLoader.AddSearchPaths(CompilerOptions.SearchPaths);
+				moduleLoader.AddSearchPaths(CompilerOptions.SearchPaths);
+				moduleLoader.LoadModuleFromFiles(CompilerOptions.SourceFiles);
 
-			moduleLoader.LoadModuleFromFiles(CompilerOptions.SourceFiles);
+				var typeSystem = TypeSystem.Load(moduleLoader.CreateMetadata());
 
-			var typeSystem = TypeSystem.Load(moduleLoader.CreateMetadata());
-
-			Load(typeSystem);
+				Load(typeSystem);
+			}
 		}
 
 		public void Load(TypeSystem typeSystem)
 		{
-			TypeSystem = typeSystem;
+			lock (_lock)
+			{
+				TypeSystem = typeSystem;
+				TypeLayout = new MosaTypeLayout(typeSystem, CompilerOptions.Architecture.NativePointerSize, CompilerOptions.Architecture.NativeAlignment);
 
-			TypeLayout = new MosaTypeLayout(typeSystem, CompilerOptions.Architecture.NativePointerSize, CompilerOptions.Architecture.NativeAlignment);
+				Linker = null;
+				Compiler = null;
 
-			CompilationScheduler = new CompilationScheduler();
-		}
-
-		public void Execute()
-		{
-			Initialize();
-			PreCompile();
-			ScheduleAll();
-			Compile();
-			PostCompile();
-		}
-
-		public void ExecuteThreaded()
-		{
-			Initialize();
-			PreCompile();
-			ScheduleAll();
-			Compiler.ExecuteThreadedCompile(MaxThreads);
-			PostCompile();
+				Stage = CompileStage.Loaded;
+			}
 		}
 
 		public void Initialize()
 		{
-			Linker = new MosaLinker(CompilerOptions.BaseAddress, CompilerOptions.Architecture.Endianness, CompilerOptions.Architecture.MachineType, CompilerOptions.EmitAllSymbols, CompilerOptions.EmitStaticRelocations, CompilerOptions.LinkerFormatType, CompilerOptions.CreateExtraSections, CompilerOptions.CreateExtraProgramHeaders);
+			lock (_lock)
+			{
+				if (Stage != CompileStage.Loaded)
+					return;
 
-			Compiler = new Compiler(this);
+				Linker = new MosaLinker(CompilerOptions.BaseAddress, CompilerOptions.Architecture.Endianness, CompilerOptions.Architecture.ElfMachineType, CompilerOptions.EmitAllSymbols, CompilerOptions.EmitStaticRelocations, CompilerOptions.LinkerFormatType, CompilerOptions.CreateExtraSections, CompilerOptions.CreateExtraProgramHeaders);
+				Compiler = new Compiler(this);
+
+				Stage = CompileStage.Initialized;
+			}
 		}
 
-		public void PreCompile()
+		public void Setup()
 		{
-			Compiler.PreCompile();
+			Initialize();
+
+			lock (_lock)
+			{
+				if (Stage != CompileStage.Initialized)
+					return;
+
+				Compiler.Setup();
+
+				Stage = CompileStage.Ready;
+			}
+		}
+
+		public void Finalization()
+		{
+			lock (_lock)
+			{
+				if (Stage != CompileStage.Ready)
+					return;
+
+				Compiler.Finalization();
+
+				Stage = CompileStage.Completed;
+			}
 		}
 
 		public void ScheduleAll()
 		{
-			CompilationScheduler.ScheduleAll(TypeSystem);
+			Setup();
+			Compiler.MethodScheduler.ScheduleAll(TypeSystem);
 		}
 
 		public void Schedule(MosaType type)
 		{
-			CompilationScheduler.Schedule(type);
+			Setup();
+			Compiler.MethodScheduler.Schedule(type);
 		}
 
 		public void Schedule(MosaMethod method)
 		{
-			CompilationScheduler.Schedule(method);
+			Setup();
+			Compiler.MethodScheduler.Schedule(method);
 		}
 
-		public void Compile()
+		public void Compile(bool skipFinalization = false)
 		{
+			Setup();
+
+			if (!CompilerOptions.EnableMethodScanner)
+			{
+				ScheduleAll();
+			}
+
+			lock (_lock)
+			{
+				if (Stage != CompileStage.Ready)
+					return;
+
+				Stage = CompileStage.Executing;
+			}
+
 			Compiler.ExecuteCompile();
+
+			lock (_lock)
+			{
+				Stage = CompileStage.Ready;
+			}
+
+			if (!skipFinalization)
+			{
+				Finalization();
+			}
 		}
 
-		public void PostCompile()
+		public void ThreadedCompile(bool skipFinalization = false)
 		{
-			Compiler.PostCompile();
+			Setup();
+
+			if (!CompilerOptions.EnableMethodScanner)
+			{
+				ScheduleAll();
+			}
+
+			lock (_lock)
+			{
+				if (Stage != CompileStage.Ready)
+					return;
+
+				Stage = CompileStage.Executing;
+			}
+
+			Compiler.ExecuteThreadedCompile(MaxThreads);
+
+			lock (_lock)
+			{
+				Stage = CompileStage.Ready;
+			}
+
+			if (!skipFinalization)
+			{
+				Finalization();
+			}
+		}
+
+		public void CompileSingleMethod(MosaMethod method)
+		{
+			Setup();
+
+			// Thread Safe
+			Compiler.CompileMethod(method);
 		}
 	}
 }

@@ -15,7 +15,7 @@ namespace Mosa.Compiler.Framework.Stages
 			if (!MethodCompiler.IsCILDecodeRequired)
 				return;
 
-			if (MethodCompiler.Method.Name != ".cctor")
+			if (!Method.IsTypeConstructor)
 				return;
 
 			AttemptToStaticallyAllocateObjects();
@@ -47,9 +47,18 @@ namespace Mosa.Compiler.Framework.Stages
 					if (node.IsEmpty)
 						continue;
 
-					if ((node.Instruction is NewobjInstruction && !MosaTypeLayout.IsStoredOnStack(node.Result.Type)) || node.Instruction is NewarrInstruction)
+					if (node.Instruction is NewobjInstruction)
+					{
+						if (!MosaTypeLayout.IsStoredOnStack(node.Result.Type))
+						{
+							list.Add(node);
+							MethodScanner.TypeAllocated(node.InvokeMethod.DeclaringType, Method);
+						}
+					}
+					else if (node.Instruction is NewarrInstruction)
 					{
 						list.Add(node);
+						MethodScanner.TypeAllocated(node.Result.Type, Method);
 					}
 				}
 			}
@@ -74,14 +83,14 @@ namespace Mosa.Compiler.Framework.Stages
 			}
 
 			// Allocate a linker symbol to refer to this allocation. Use the destination field name as the linker symbol name.
-			var symbolName = MethodCompiler.Linker.DefineSymbol(assignmentField.FullName + "<<$cctor", SectionKind.ROData, Architecture.NativeAlignment, typeSize);
+			var symbolName = Linker.DefineSymbol(assignmentField.FullName + "<<$cctor", SectionKind.ROData, Architecture.NativeAlignment, typeSize);
 
 			// Try to get typeDefinitionSymbol if allocatedType isn't a value type
 			string typeDefinitionSymbol = GetTypeDefinition(allocatedType);
 
 			if (typeDefinitionSymbol != null)
 			{
-				MethodCompiler.Linker.Link(LinkType.AbsoluteAddress, PatchType.I4, symbolName, 0, typeDefinitionSymbol, 0);
+				Linker.Link(LinkType.AbsoluteAddress, PatchType.I4, symbolName, 0, typeDefinitionSymbol, 0);
 			}
 
 			var staticAddress = Operand.CreateSymbol(assignmentField.FieldType, symbolName.Name);
@@ -118,7 +127,7 @@ namespace Mosa.Compiler.Framework.Stages
 		{
 			if (!allocatedType.IsValueType)
 			{
-				return allocatedType.FullName + Metadata.TypeDefinition;
+				return Metadata.TypeDefinition + allocatedType.FullName;
 			}
 			return null;
 		}

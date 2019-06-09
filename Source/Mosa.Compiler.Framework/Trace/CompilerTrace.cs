@@ -1,37 +1,63 @@
 ﻿// Copyright (c) MOSA Project. Licensed under the New BSD License.
 
-using Mosa.Compiler.Framework.Trace.BuiltIn;
+using Mosa.Compiler.MosaTypeSystem;
 
 namespace Mosa.Compiler.Framework.Trace
 {
 	public class CompilerTrace
 	{
-		public ITraceListener TraceListener { get; set; }
+		private ITraceListener TraceListener;
+		private CompilerOptions CompilerOptions;
 
-		public TraceFilter TraceFilter { get; }
+		public int TraceLevel { get { return CompilerOptions.TraceLevel; } }
 
-		//public int MinTraceLevel { get; set; } = 0;
-
-		public CompilerTrace()
+		public CompilerTrace(CompilerOptions compilerOptions)
 		{
-			TraceListener = new DebugCompilerEventListener();
-			TraceFilter = new TraceFilter();
+			CompilerOptions = compilerOptions;
+
+			TraceListener = null;
 		}
 
-		public void NewTraceLog(TraceLog traceLog)
+		public bool IsTraceable(int traceLevel)
+		{
+			return TraceLevel != 0 && TraceLevel >= traceLevel;
+		}
+
+		public void SetTraceListener(ITraceListener traceListener)
+		{
+			TraceListener = traceListener;
+		}
+
+		public void PostMethodCompiled(MosaMethod method)
 		{
 			if (TraceListener == null)
 				return;
 
-			TraceListener.OnNewTraceLog(traceLog);
+			TraceListener.OnMethodCompiled(method);
 		}
 
-		public void NewCompilerTraceEvent(CompilerEvent compilerEvent, string message, int threadID)
+		public void PostTraceLog(TraceLog traceLog, bool signalStatusUpdate = false)
+		{
+			if (traceLog == null)
+				return;
+
+			if (TraceListener == null)
+				return;
+
+			TraceListener.OnTraceLog(traceLog);
+
+			if (signalStatusUpdate)
+			{
+				TraceListener.OnCompilerEvent(CompilerEvent.StatusUpdate, string.Empty, 0);
+			}
+		}
+
+		public void PostCompilerTraceEvent(CompilerEvent compilerEvent, string message, int threadID)
 		{
 			if (TraceListener == null)
 				return;
 
-			TraceListener.OnNewCompilerTraceEvent(compilerEvent, message, threadID);
+			TraceListener.OnCompilerEvent(compilerEvent, message, threadID);
 		}
 
 		public void UpdatedCompilerProgress(int totalMethods, int completedMethods)
@@ -39,7 +65,7 @@ namespace Mosa.Compiler.Framework.Trace
 			if (TraceListener == null)
 				return;
 
-			TraceListener.OnUpdatedCompilerProgress(totalMethods, completedMethods);
+			TraceListener.OnProgress(totalMethods, completedMethods);
 		}
 	}
 }

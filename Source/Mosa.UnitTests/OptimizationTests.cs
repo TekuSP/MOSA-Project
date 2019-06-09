@@ -265,5 +265,41 @@ namespace Mosa.UnitTests
 
 			return 0;
 		}
+
+		[MosaUnitTest((byte)0)]
+		[MosaUnitTest((byte)8)]
+		[MosaUnitTest((byte)16)]
+		[MosaUnitTest((byte)19)]
+		[MosaUnitTest((byte)23)]
+		[MosaUnitTest((byte)111)]
+		[MosaUnitTest((byte)127)]
+		[MosaUnitTest((byte)128)]
+		[MosaUnitTest((byte)254)]
+		[MosaUnitTest((byte)255)]
+		public static bool OptimizationTest21(byte a)
+		{
+			short b = a;
+			b <<= 4;
+			b |= 3;
+			return b != 0;
+		}
+
+		//[MosaUnitTest(0)]
+		//[MosaUnitTest(1)]
+		//[MosaUnitTest(2)]
+		//[MosaUnitTest(3)]
+		//public static int OptimizationTest22(int a)
+		//{
+		//	return a % 2 != 0 ? 4 : 2;
+		//}
+
+		//[MosaUnitTest((uint)0)]
+		//[MosaUnitTest((uint)1)]
+		//[MosaUnitTest((uint)2)]
+		//[MosaUnitTest((uint)3)]
+		//public static uint OptimizationTest23(uint a)
+		//{
+		//	return a % 2 != 0 ? 4u : 2u;
+		//}
 	}
 }

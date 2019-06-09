@@ -36,7 +36,7 @@ namespace Mosa.HelloWorld.x86
 			Console.Color = ScreenColor.Red;
 			Console.Write("Neptune");
 			Console.Color = ScreenColor.Yellow;
-			Console.Write("'                                Copyright 2008-2018");
+			Console.Write("'                                Copyright 2008-2019");
 
 			Console.Color = ScreenColor.White;
 			Console.Write(new String((char)205, 60));
@@ -46,9 +46,9 @@ namespace Mosa.HelloWorld.x86
 
 			Console.Goto(2, 0);
 			Console.Color = ScreenColor.Green;
-			Console.Write("Multibootaddress: ");
+			Console.Write("MultibootAddress: ");
 			Console.Color = ScreenColor.Gray;
-			Console.Write(Multiboot.MultibootAddress, 16, 8);
+			Console.Write((uint)Multiboot.MultibootStructure.ToInt32(), 16, 8);
 
 			Console.WriteLine();
 			Console.Color = ScreenColor.Green;
@@ -60,9 +60,9 @@ namespace Mosa.HelloWorld.x86
 			Console.Color = ScreenColor.Green;
 			Console.Write("Size of Memory:   ");
 			Console.Color = ScreenColor.Gray;
-			Console.Write((Multiboot.MemoryLower + Multiboot.MemoryUpper) / 1024, 10, -1);
+			Console.Write((uint)(Multiboot.MemoryLower.ToInt32() + Multiboot.MemoryUpper.ToInt32()) / 1024, 10, -1);
 			Console.Write(" MB (");
-			Console.Write(Multiboot.MemoryLower + Multiboot.MemoryUpper, 10, -1);
+			Console.Write((uint)(Multiboot.MemoryLower.ToInt32() + Multiboot.MemoryUpper.ToInt32()), 10, -1);
 			Console.Write(" KB)");
 			Console.WriteLine();
 			Console.WriteLine();
@@ -217,6 +217,8 @@ namespace Mosa.HelloWorld.x86
 			}
 
 			Console.Goto(12, 0);
+
+			Logger.Log("<SELFTEST:PASSED>");
 
 			while (true)
 			{

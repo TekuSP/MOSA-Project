@@ -1,136 +1,290 @@
 ﻿// Copyright (c) MOSA Project. Licensed under the New BSD License.
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace Mosa.Compiler.Framework.RegisterAllocator
 {
-	public class LiveRange : Interval
+	public sealed class LiveRange
 	{
-		private readonly SortedList<SlotIndex, SlotIndex> usePositions = new SortedList<SlotIndex, SlotIndex>();
+		// Live ranges includes:
+		// 1. Use > start && Use <= end
+		// 2. Def >= start && Def < end
 
-		private readonly SortedList<SlotIndex, SlotIndex> defPositions = new SortedList<SlotIndex, SlotIndex>();
+		// Notes:
+		// Uses can not be at the start of a live range
+		// Uses can end at the end of a live range
+		// Defs can be at the start of a live range
+		// Defs can not end at the end of a live range
 
-		public IList<SlotIndex> UsePositions { get { return usePositions.Keys; } }
+		private readonly VirtualRegister VirtualRegister;
 
-		public IList<SlotIndex> DefPositions { get { return defPositions.Keys; } }
+		private readonly int StartIndex;
+		private readonly int EndIndex;
 
-		public bool IsEmpty { get { return usePositions.Count == 0 && defPositions.Count == 0; } }
+		private readonly int FirstUseIndex;
+		private readonly int LastUseIndex;
 
-		public SlotIndex Minimum { get; }
+		private readonly int FirstDefIndex;
+		private readonly int LastDefIndex;
 
-		public SlotIndex Maximum { get; }
+		public readonly SlotIndex Start;
+		public readonly SlotIndex End;
 
-		public SlotIndex FirstUse { get { return usePositions.Count == 0 ? null : usePositions.Values[0]; } }
+		public readonly bool IsEmpty;
 
-		public SlotIndex FirstDef { get { return defPositions.Count == 0 ? null : defPositions.Values[0]; } }
+		public readonly SlotIndex First;
+		public readonly SlotIndex Last;
 
-		public SlotIndex LastUse { get { return usePositions.Count == 0 ? null : usePositions.Values[usePositions.Count - 1]; } }
+		public readonly SlotIndex FirstUse;
+		public readonly SlotIndex FirstDef;
 
-		public SlotIndex LastDef { get { return defPositions.Count == 0 ? null : defPositions.Values[defPositions.Count - 1]; } }
+		public readonly SlotIndex LastUse;
+		public readonly SlotIndex LastDef;
 
-		public int UseCount { get { return usePositions.Count; } }
+		public readonly int UseCount;
 
-		public int DefCount { get { return defPositions.Count; } }
+		public readonly int DefCount;
 
-		public bool IsDefFirst { get; }
+		public readonly bool IsDefFirst;
 
-		public LiveRange(SlotIndex start, SlotIndex end, IList<SlotIndex> uses, IList<SlotIndex> defs)
-			: base(start, end)
+		public LiveRange(SlotIndex start, SlotIndex end, VirtualRegister virtualRegister, int startIndex = 0, int endIndex = Int32.MaxValue)
 		{
-			// live intervals can not start/end at the same location
-			Debug.Assert(start != end);
+			VirtualRegister = virtualRegister;
+			Start = start;
+			End = end;
 
-			SlotIndex max = null;
-			SlotIndex min = null;
-
-			foreach (var use in uses)
+			if (virtualRegister.IsPhysicalRegister)
 			{
-				if (use != Start && (End == use || Contains(use)))
-				{
-					usePositions.Add(use, use);
+				return;
+			}
 
-					if (max == null || use > max)
-						max = use;
-					if (min == null || use < min)
-						min = use;
+			int lastUseIndex = -1;
+			int firstUseIndex = -1;
+			int lastDefIndex = -1;
+			int firstDefIndex = -1;
+			int useCount = 0;
+			int defCount = 0;
+
+			for (int i = startIndex; i < virtualRegister.UsePositions.Count && i <= endIndex; i++)
+			{
+				var use = virtualRegister.UsePositions[i];
+
+				if (use > end)
+					break;
+
+				if (use > start) // && (use <= end)
+				{
+					if (firstUseIndex < 0)
+					{
+						firstUseIndex = i;
+					}
+					useCount++;
+					lastUseIndex = i;
 				}
 			}
 
-			foreach (var def in defs)
+			for (int i = startIndex; i < virtualRegister.DefPositions.Count && i <= endIndex; i++)
 			{
-				if (Contains(def))
-				{
-					defPositions.Add(def, def);
+				var def = virtualRegister.DefPositions[i];
 
-					if (max == null || def > max)
-						max = def;
-					if (min == null || def < min)
-						min = def;
+				if (def >= end)
+					break;
+
+				if (def >= start) // && (def < end)
+				{
+					if (firstDefIndex < 0)
+					{
+						firstDefIndex = i;
+					}
+					defCount++;
+					lastDefIndex = i;
 				}
 			}
 
-			Minimum = min;
-			Maximum = max;
+			StartIndex = LowestGreaterThanZero(firstUseIndex, firstDefIndex);
+			EndIndex = Math.Max(lastUseIndex, lastDefIndex);
 
-			if (FirstDef == null)
-				IsDefFirst = false;
-			else if (FirstUse == null)
-				IsDefFirst = true;
-			else if (FirstDef < FirstUse)
-				IsDefFirst = true;
+			FirstUseIndex = firstUseIndex;
+			LastUseIndex = lastUseIndex;
+
+			FirstDefIndex = firstDefIndex;
+			LastDefIndex = lastDefIndex;
+
+			UseCount = useCount;
+			DefCount = defCount;
+
+			IsEmpty = useCount + defCount == 0;
+
+			FirstUse = useCount == 0 ? SlotIndex.NullSlot : VirtualRegister.UsePositions[firstUseIndex];
+			FirstDef = defCount == 0 ? SlotIndex.NullSlot : VirtualRegister.DefPositions[firstDefIndex];
+			LastUse = useCount == 0 ? SlotIndex.NullSlot : VirtualRegister.UsePositions[lastUseIndex];
+			LastDef = defCount == 0 ? SlotIndex.NullSlot : VirtualRegister.DefPositions[lastDefIndex];
+
+			First = (useCount == 0 || firstDefIndex < firstUseIndex) ? FirstDef : FirstUse;
+			Last = (useCount == 0 || lastDefIndex > lastUseIndex) ? LastDef : LastUse;
+
+			IsDefFirst = defCount != 0 && (useCount == 0 || FirstDefIndex < FirstUseIndex);
+
+			//Debug.Assert(InternalValidation());
 		}
 
-		private static SlotIndex GetNext(IList<SlotIndex> slots, SlotIndex start)
+		private bool InternalValidation()
 		{
-			int cnt = slots.Count;
-
-			for (int i = 0; i < cnt; i++)
+			foreach (var use in UsePositions)
 			{
-				var slot = slots[i];
+				if (!ContainUse(use))
+					return false;
 
-				if (slot > start)
-				{
-					return slot;
-				}
+				if (UseCount == 0)
+					return false;
 			}
 
-			return null;
+			foreach (var def in DefPositions)
+			{
+				if (!ContainDef(def))
+					return false;
+
+				if (DefCount == 0)
+					return false;
+			}
+
+			if (FirstUse.IsNotNull && !ContainUse(FirstUse))
+				return false;
+
+			if (LastUse.IsNotNull && !ContainUse(LastUse))
+				return false;
+
+			if (FirstDef.IsNotNull && !ContainDef(FirstDef))
+				return false;
+
+			if (LastDef.IsNotNull && !ContainDef(LastDef))
+				return false;
+
+			return true;
 		}
 
-		private SlotIndex GetPrevious(IList<SlotIndex> slots, SlotIndex start)
+		private static int LowestGreaterThanZero(int a, int b)
 		{
-			for (int i = slots.Count - 1; i >= 0; i--)
-			{
-				var slot = slots[i];
+			if (a < 0)
+				return b;
 
-				if (slot < start)
-				{
-					return slot;
-				}
+			if (b < 0)
+				return a;
+
+			if (a > b)
+				return b;
+			else
+				return a;
+		}
+
+		public bool ContainUse(SlotIndex at)
+		{
+			if (!at.IsOnSlot)
+				return false;
+
+			if (UseCount == 0 || at < FirstUse || at > LastUse)
+				return false;
+
+			for (int i = FirstUseIndex; i <= LastUseIndex; i++)
+			{
+				var use = VirtualRegister.UsePositions[i];
+
+				if (at == use)
+					return true;
+
+				if (use > at)   // list is sorted, so fast out
+					return false;
 			}
 
-			return null;
+			return false;
+		}
+
+		public bool ContainDef(SlotIndex at)
+		{
+			if (!at.IsOnSlot)
+				return false;
+
+			if (DefCount == 0 || at < FirstDef || at > LastDef)
+				return false;
+
+			for (int i = FirstDefIndex; i <= LastDefIndex; i++)
+			{
+				var def = VirtualRegister.DefPositions[i];
+
+				if (at == def)
+					return true;
+
+				if (def > at)   // list is sorted, so fast out
+					return false;
+			}
+
+			return false;
 		}
 
 		public SlotIndex GetNextUsePosition(SlotIndex at)
 		{
-			return GetNext(UsePositions, at);
+			if (UseCount == 0 || at < Start || at > LastUse) // || at > End
+				return SlotIndex.NullSlot;
+
+			for (int i = FirstUseIndex; i <= LastUseIndex; i++)
+			{
+				var use = VirtualRegister.UsePositions[i];
+
+				if (use > at)
+					return use;
+			}
+
+			return SlotIndex.NullSlot;
 		}
 
 		public SlotIndex GetNextDefPosition(SlotIndex at)
 		{
-			return GetNext(DefPositions, at);
+			if (DefCount == 0 || at < Start || at > LastDef) // || at > End
+				return SlotIndex.NullSlot;
+
+			for (int i = FirstDefIndex; i <= LastDefIndex; i++)
+			{
+				var def = VirtualRegister.DefPositions[i];
+
+				if (def > at)
+					return def;
+			}
+
+			return SlotIndex.NullSlot;
 		}
 
 		public SlotIndex GetPreviousUsePosition(SlotIndex at)
 		{
-			return GetPrevious(UsePositions, at);
+			if (UseCount == 0 || at < Start || at < FirstUse) // || at > End
+				return SlotIndex.NullSlot;
+
+			for (int i = LastUseIndex; i >= FirstUseIndex; i--)
+			{
+				var use = VirtualRegister.UsePositions[i];
+
+				if (use < at)
+					return use;
+			}
+
+			return SlotIndex.NullSlot;
 		}
 
 		public SlotIndex GetPreviousDefPosition(SlotIndex at)
 		{
-			return GetPrevious(DefPositions, at);
+			if (DefCount == 0 || at < Start || at < FirstDef)  // || at > End
+				return SlotIndex.NullSlot;
+
+			for (int i = LastDefIndex; i >= FirstDefIndex; i--)
+			{
+				var def = VirtualRegister.DefPositions[i];
+
+				if (def < at)
+					return def;
+			}
+
+			return SlotIndex.NullSlot;
 		}
 
 		public bool CanSplitAt(SlotIndex at)
@@ -138,26 +292,26 @@ namespace Mosa.Compiler.Framework.RegisterAllocator
 			if (at <= Start || at >= End)
 				return false;
 
-			if (usePositions.ContainsKey(at))
-				return false;
-
-			return true;
+			return !ContainUse(at);
 		}
 
 		public List<LiveRange> SplitAt(SlotIndex at)
 		{
 			Debug.Assert(CanSplitAt(at));
 
-			var ranges = new List<LiveRange>(2)
+			// FUTURE: Optimize below --
+
+			return new List<LiveRange>(2)
 			{
-				new LiveRange(Start, at, UsePositions, DefPositions),
-				new LiveRange(at, End, UsePositions, DefPositions)
+				new LiveRange(Start, at, VirtualRegister, StartIndex, EndIndex),
+				new LiveRange(at, End, VirtualRegister, StartIndex, EndIndex)
 			};
-			return ranges;
 		}
 
 		public bool CanSplitAt(SlotIndex low, SlotIndex high)
 		{
+			//return CanSplitAt(low) && CanSplitAt(high); // slightly slower version
+
 			if (low <= Start || low >= End)
 				return false;
 
@@ -167,10 +321,10 @@ namespace Mosa.Compiler.Framework.RegisterAllocator
 			if (low >= high)
 				return false;
 
-			if (usePositions.ContainsKey(low))
+			if (ContainUse(low))
 				return false;
 
-			if (usePositions.ContainsKey(high))
+			if (ContainUse(high))
 				return false;
 
 			return true;
@@ -185,13 +339,47 @@ namespace Mosa.Compiler.Framework.RegisterAllocator
 
 			Debug.Assert(CanSplitAt(low, high));
 
-			var ranges = new List<LiveRange>(3)
+			// FUTURE: Optimize below --
+
+			return new List<LiveRange>(3)
 			{
-				new LiveRange(Start, low, UsePositions, DefPositions),
-				new LiveRange(low, high, UsePositions, DefPositions),
-				new LiveRange(high, End, UsePositions, DefPositions)
+				new LiveRange(Start, low,  VirtualRegister, StartIndex, EndIndex),
+				new LiveRange(low, high,  VirtualRegister, StartIndex, EndIndex),
+				new LiveRange(high, End,  VirtualRegister, StartIndex, EndIndex)
 			};
-			return ranges;
+		}
+
+		public IEnumerable<SlotIndex> UsePositions
+		{
+			get
+			{
+				if (UseCount == 0)
+					yield break;
+
+				for (int i = FirstUseIndex; i <= LastUseIndex; i++)
+				{
+					yield return VirtualRegister.UsePositions[i];
+				}
+			}
+		}
+
+		public IEnumerable<SlotIndex> DefPositions
+		{
+			get
+			{
+				if (DefCount == 0)
+					yield break;
+
+				for (int i = FirstDefIndex; i <= LastDefIndex; i++)
+				{
+					yield return VirtualRegister.DefPositions[i];
+				}
+			}
+		}
+
+		public override string ToString()
+		{
+			return $"({Start} to {End})";
 		}
 	}
 }

@@ -57,9 +57,6 @@ namespace Mosa.Compiler.Framework.Stages
 
 			if (Is32BitPlatform)
 			{
-				var v1 = AllocateVirtualRegister(TypeSystem.BuiltIn.U4);
-				var v2 = AllocateVirtualRegister(TypeSystem.BuiltIn.U4);
-
 				context.SetInstruction(IRInstruction.GetLow64, Operand.CreateCPURegister(TypeSystem.BuiltIn.U4, Architecture.ReturnRegister), operand);
 				context.AppendInstruction(IRInstruction.GetHigh64, Operand.CreateCPURegister(TypeSystem.BuiltIn.U4, Architecture.ReturnHighRegister), operand);
 			}
@@ -77,7 +74,7 @@ namespace Mosa.Compiler.Framework.Stages
 
 		private int CalculateMethodTableOffset(MosaMethod invokeTarget)
 		{
-			int slot = TypeLayout.GetMethodTableOffset(invokeTarget);
+			int slot = TypeLayout.GetMethodSlot(invokeTarget);
 
 			return NativePointerSize * slot;
 		}
@@ -91,6 +88,19 @@ namespace Mosa.Compiler.Framework.Stages
 
 			Debug.Assert(method != null);
 
+			if (MethodCompiler.Compiler.CompilerData.IsMethodInlined(method))
+			{
+				// If above is true, then a race condition occurred between:
+				// 1) after inline stage of this method, and
+				// 2) theinline evaluation stage of the target method
+				// the only best option at this point is to stop compiling this method.
+				// Note: It should already be scheduled to be re-compiled!
+				//MethodCompiler.Stop();
+				//return;
+			}
+
+			//Debug.Assert(!MethodCompiler.Compiler.CompilerData.IsMethodInlined(method));
+
 			operands.RemoveAt(0);
 
 			var context = new Context(node);
@@ -98,6 +108,10 @@ namespace Mosa.Compiler.Framework.Stages
 			context.Empty();
 
 			MakeCall(context, call, result, operands);
+
+			Debug.Assert(method == call.Method);
+
+			MethodScanner.MethodDirectInvoked(call.Method, Method);
 		}
 
 		private void CallDynamic(InstructionNode node)
@@ -113,6 +127,11 @@ namespace Mosa.Compiler.Framework.Stages
 			context.Empty();
 
 			MakeCall(context, call, result, operands);
+
+			if (call.Method != null)
+			{
+				MethodScanner.MethodInvoked(call.Method, Method);
+			}
 		}
 
 		private void CallVirtual(InstructionNode node)
@@ -144,11 +163,13 @@ namespace Mosa.Compiler.Framework.Stages
 			context.AppendInstruction(loadInstruction, callTarget, typeDefinition, CreateConstant(methodPointerOffset));
 
 			MakeCall(context, callTarget, result, operands);
+
+			MethodScanner.MethodInvoked(method, Method);
 		}
 
 		private int CalculateInterfaceSlot(MosaType interaceType)
 		{
-			return TypeLayout.GetInterfaceSlotOffset(interaceType);
+			return TypeLayout.GetInterfaceSlot(interaceType);
 		}
 
 		private int CalculateInterfaceSlotOffset(MosaMethod invokeTarget)
@@ -208,6 +229,8 @@ namespace Mosa.Compiler.Framework.Stages
 			context.AppendInstruction(loadInstruction, callTarget, methodDefinition, CreateConstant(methodPointerOffset));
 
 			MakeCall(context, callTarget, result, operands);
+
+			MethodScanner.InterfaceMethodInvoked(method, Method);
 		}
 
 		private void MakeCall(Context context, Operand target, Operand result, List<Operand> operands)
@@ -232,7 +255,7 @@ namespace Mosa.Compiler.Framework.Stages
 			if (stackSize == 0)
 				return;
 
-			context.AppendInstruction(Select(IRInstruction.Sub32, IRInstruction.Sub64), StackPointer, StackPointer, CreateConstant(TypeSystem.BuiltIn.I4, stackSize));
+			context.AppendInstruction(Select(StackPointer, IRInstruction.Sub32, IRInstruction.Sub64), StackPointer, StackPointer, CreateConstant(TypeSystem.BuiltIn.I4, stackSize));
 		}
 
 		private void FreeStackAfterCall(Context context, int stackSize)
@@ -240,7 +263,7 @@ namespace Mosa.Compiler.Framework.Stages
 			if (stackSize == 0)
 				return;
 
-			context.AppendInstruction(Select(IRInstruction.Add32, IRInstruction.Add64), StackPointer, StackPointer, CreateConstant(TypeSystem.BuiltIn.I4, stackSize));
+			context.AppendInstruction(Select(StackPointer, IRInstruction.Add32, IRInstruction.Add64), StackPointer, StackPointer, CreateConstant(TypeSystem.BuiltIn.I4, stackSize));
 		}
 
 		private int CalculateParameterStackSize(List<Operand> operands)

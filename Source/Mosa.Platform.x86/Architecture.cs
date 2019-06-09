@@ -1,7 +1,6 @@
 // Copyright (c) MOSA Project. Licensed under the New BSD License.
 
 using Mosa.Compiler.Common;
-using Mosa.Compiler.Common.Exceptions;
 using Mosa.Compiler.Framework;
 using Mosa.Compiler.Framework.CompilerStages;
 using Mosa.Compiler.Framework.IR;
@@ -29,7 +28,7 @@ namespace Mosa.Platform.x86
 		/// <summary>
 		/// Gets the type of the elf machine.
 		/// </summary>
-		public override MachineType MachineType { get { return MachineType.Intel386; } }
+		public override MachineType ElfMachineType { get { return MachineType.Intel386; } }
 
 		/// <summary>
 		/// Defines the register set of the target architecture.
@@ -168,33 +167,31 @@ namespace Mosa.Platform.x86
 		/// <summary>
 		/// Extends the compiler pipeline with x86 compiler stages.
 		/// </summary>
-		/// <param name="compilerPipeline">The pipeline to extend.</param>
-		public override void ExtendCompilerPipeline(Pipeline<BaseCompilerStage> compilerPipeline, CompilerOptions compilerOptions)
+		/// <param name="pipeline">The pipeline to extend.</param>
+		public override void ExtendCompilerPipeline(Pipeline<BaseCompilerStage> pipeline, CompilerOptions compilerOptions)
 		{
 			if (compilerOptions.MultibootSpecification == MultibootSpecification.V1)
 			{
-				compilerPipeline.InsertAfterFirst<TypeInitializerSchedulerStage>(
+				pipeline.InsertAfterFirst<TypeInitializerStage>(
 					new MultibootV1Stage()
 				);
 			}
 
-			compilerPipeline.Add(
-				new Intel.CompilerStages.StartUpStage()
-			);
+			pipeline.Add(new Intel.CompilerStages.StartUpStage());
 		}
 
 		/// <summary>
 		/// Extends the method compiler pipeline with x86 specific stages.
 		/// </summary>
-		/// <param name="compilerPipeline">The method compiler pipeline to extend.</param>
+		/// <param name="pipeline">The method compiler pipeline to extend.</param>
 		/// <param name="compilerOptions">The compiler options.</param>
-		public override void ExtendMethodCompilerPipeline(Pipeline<BaseMethodCompilerStage> compilerPipeline, CompilerOptions compilerOptions)
+		public override void ExtendMethodCompilerPipeline(Pipeline<BaseMethodCompilerStage> pipeline, CompilerOptions compilerOptions)
 		{
-			compilerPipeline.InsertBefore<LowerIRStage>(
+			pipeline.InsertBefore<CallStage>(
 				new IRSubstitutionStage()
 			);
 
-			compilerPipeline.InsertAfterLast<PlatformIntrinsicStage>(
+			pipeline.InsertAfterLast<PlatformIntrinsicStage>(
 				new BaseMethodCompilerStage[]
 				{
 					new LongOperandStage(),
@@ -207,18 +204,18 @@ namespace Mosa.Platform.x86
 					new FloatingPointStage(),
 				});
 
-			compilerPipeline.InsertAfterLast<StackLayoutStage>(
+			pipeline.InsertAfterLast<StackLayoutStage>(
 				new BuildStackStage()
 			);
 
-			compilerPipeline.InsertBefore<CodeGenerationStage>(
+			pipeline.InsertBefore<CodeGenerationStage>(
 				new BaseMethodCompilerStage[]
 				{
 					new FinalTweakStage(),
 					compilerOptions.EnablePlatformOptimizations ? new PostOptimizationStage() : null,
 				});
 
-			compilerPipeline.InsertBefore<CodeGenerationStage>(
+			pipeline.InsertBefore<CodeGenerationStage>(
 				new JumpOptimizationStage()
 			);
 		}
@@ -351,15 +348,11 @@ namespace Mosa.Platform.x86
 		/// <param name="source">The source.</param>
 		public override void InsertExchangeInstruction(Context context, Operand destination, Operand source)
 		{
-			if (source.IsR4)
+			if (source.IsR8 || source.IsR4)
 			{
-				// TODO
-				throw new CompilerException("R4 not implemented in InsertExchangeInstruction method");
-			}
-			else if (source.IsR8)
-			{
-				// TODO
-				throw new CompilerException("R8 not implemented in InsertExchangeInstruction method");
+				context.AppendInstruction(X86.PXor, destination, source);
+				context.AppendInstruction(X86.PXor, source, destination);
+				context.AppendInstruction(X86.PXor, destination, source);
 			}
 			else
 			{

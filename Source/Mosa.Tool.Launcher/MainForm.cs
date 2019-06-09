@@ -20,9 +20,12 @@ namespace Mosa.Tool.Launcher
 
 		public Starter Starter { get; private set; }
 
-		public Options Options { get; }
+		public LauncherOptions Options { get; }
 
 		public AppLocations AppLocations { get; set; }
+
+		private int TotalMethods = 0;
+		private int CompletedMethods = 0;
 
 		public string ConfigFile
 		{
@@ -53,7 +56,7 @@ namespace Mosa.Tool.Launcher
 		{
 			InitializeComponent();
 
-			Options = new Options();
+			Options = new LauncherOptions();
 			AppLocations = new AppLocations();
 
 			AppLocations.FindApplications();
@@ -92,7 +95,7 @@ namespace Mosa.Tool.Launcher
 			Options.EnableQemuGDB = cbEnableQemuGDB.Checked;
 			Options.LaunchGDB = cbLaunchGDB.Checked;
 			Options.LaunchGDBDebugger = cbLaunchMosaDebugger.Checked;
-			Options.UseMultiThreadingCompiler = cbCompilerUsesMultipleThreads.Checked;
+			Options.EnableMultiThreading = cbCompilerUsesMultipleThreads.Checked;
 			Options.EmulatorMemoryInMB = (uint)nmMemory.Value;
 			Options.EnableInlinedMethods = cbInlinedMethods.Checked;
 			Options.VBEVideo = cbVBEVideo.Checked;
@@ -100,11 +103,13 @@ namespace Mosa.Tool.Launcher
 			Options.TwoPassOptimizations = cbTwoPassOptimizations.Checked;
 			Options.EnableIRLongExpansion = cbIRLongExpansion.Checked;
 			Options.EnableValueNumbering = cbValueNumbering.Checked;
-			Options.GenerateDebugFile = Options.LaunchGDBDebugger;
+			Options.GenerateDebugFile = cbGenerateDebugInfoFile.Checked;
 			Options.BaseAddress = tbBaseAddress.Text.ParseHexOrInteger();
 			Options.EmitAllSymbols = cbEmitSymbolTable.Checked;
 			Options.EmitStaticRelocations = cbRelocationTable.Checked;
-			Options.Emitx86IRQMethods = cbEmitx86IRQMethods.Checked;
+			Options.EnableMethodScanner = cbEnableMethodScanner.Checked;
+			Options.GenerateCompileTimeFile = cbGenerateCompilerTime.Checked;
+			Options.EnableBitTracker = cbBitTracker.Checked;
 
 			if (Options.VBEVideo)
 			{
@@ -215,17 +220,19 @@ namespace Mosa.Tool.Launcher
 			cbLaunchGDB.Checked = Options.LaunchGDB;
 			cbLaunchMosaDebugger.Checked = Options.LaunchGDBDebugger;
 			cbInlinedMethods.Checked = Options.EnableInlinedMethods;
-			cbCompilerUsesMultipleThreads.Checked = Options.UseMultiThreadingCompiler;
+			cbCompilerUsesMultipleThreads.Checked = Options.EnableMultiThreading;
 			nmMemory.Value = Options.EmulatorMemoryInMB;
 			cbVBEVideo.Checked = Options.VBEVideo;
 			tbBaseAddress.Text = "0x" + Options.BaseAddress.ToString("x8");
 			cbRelocationTable.Checked = Options.EmitStaticRelocations;
 			cbEmitSymbolTable.Checked = Options.EmitAllSymbols;
-			cbEmitx86IRQMethods.Checked = Options.Emitx86IRQMethods;
 			tbMode.Text = Options.Width + "x" + Options.Height + "x" + Options.Depth;
 			cbIRLongExpansion.Checked = Options.EnableIRLongExpansion;
 			cbTwoPassOptimizations.Checked = Options.TwoPassOptimizations;
 			cbValueNumbering.Checked = Options.EnableValueNumbering;
+			cbEnableMethodScanner.Checked = Options.EnableMethodScanner;
+			cbGenerateCompilerTime.Checked = Options.GenerateCompileTimeFile;
+			cbBitTracker.Checked = Options.EnableBitTracker;
 
 			switch (Options.ImageFormat)
 			{
@@ -302,29 +309,24 @@ namespace Mosa.Tool.Launcher
 
 		void IBuilderEvent.NewStatus(string status)
 		{
-			MethodInvoker method = () => NewStatus(status);
-
-			Invoke(method);
+			Invoke((MethodInvoker)(() => NewStatus(status)));
 		}
 
 		void IStarterEvent.NewStatus(string status)
 		{
-			MethodInvoker method = () => NewStatus(status);
-
-			Invoke(method);
+			Invoke((MethodInvoker)(() => NewStatus(status)));
 		}
 
-		private void UpdateProgress(int total, int at)
+		private void UpdateProgress()
 		{
-			progressBar1.Maximum = total;
-			progressBar1.Value = at;
+			progressBar1.Maximum = TotalMethods;
+			progressBar1.Value = CompletedMethods;
 		}
 
 		void IBuilderEvent.UpdateProgress(int total, int at)
 		{
-			MethodInvoker method = () => UpdateProgress(total, at);
-
-			Invoke(method);
+			TotalMethods = total;
+			CompletedMethods = at;
 		}
 
 		private void MainForm_Shown(object sender, EventArgs e)
@@ -417,24 +419,23 @@ namespace Mosa.Tool.Launcher
 			tbApplicationLocations.SelectedTab = tabOutput;
 
 			ThreadPool.QueueUserWorkItem(new WaitCallback(delegate
+			{
+				try
 				{
-					try
+					Builder.Compile();
+				}
+				catch (Exception e)
+				{
+					OnException(e.ToString());
+				}
+				finally
+				{
+					if (!Builder.HasCompileError)
 					{
-						Builder.Compile();
-					}
-					catch (Exception e)
-					{
-						OnException(e.ToString());
-					}
-					finally
-					{
-						if (!Builder.HasCompileError)
-						{
-							OnCompileCompleted();
-						}
+						OnCompileCompleted();
 					}
 				}
-			));
+			}));
 		}
 
 		private void OnException(string data)
@@ -453,7 +454,7 @@ namespace Mosa.Tool.Launcher
 
 		private void CompileCompleted()
 		{
-			if (Builder.Options.LaunchVM)
+			if (Builder.LauncherOptions.LaunchVM)
 			{
 				foreach (var line in Builder.Counters)
 				{
@@ -534,6 +535,11 @@ namespace Mosa.Tool.Launcher
 			var cliParser = new Parser(config => config.HelpWriter = Console.Out);
 
 			cliParser.ParseArguments(() => Options, args);
+		}
+
+		private void timer1_Tick(object sender, EventArgs e)
+		{
+			UpdateProgress();
 		}
 	}
 }

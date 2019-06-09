@@ -15,13 +15,13 @@ namespace Mosa.Utility.Launcher
 
 		public MosaLinker Linker { get; }
 
-		public Starter(Options options, AppLocations appLocations, IStarterEvent launcherEvent)
-			: base(options, appLocations)
+		public Starter(LauncherOptions launcherOptions, AppLocations appLocations, IStarterEvent launcherEvent)
+			: base(launcherOptions, appLocations)
 		{
 			LauncherEvent = launcherEvent;
 		}
 
-		public Starter(Options options, AppLocations appLocations, IStarterEvent launcherEvent, MosaLinker linker)
+		public Starter(LauncherOptions options, AppLocations appLocations, IStarterEvent launcherEvent, MosaLinker linker)
 			: base(options, appLocations)
 		{
 			LauncherEvent = launcherEvent;
@@ -37,15 +37,15 @@ namespace Mosa.Utility.Launcher
 		{
 			var process = LaunchVM();
 
-			if (Options.LaunchGDBDebugger)
+			if (LauncherOptions.LaunchGDBDebugger)
 			{
 				LaunchGDBDebugger();
 			}
-			if (Options.LaunchGDB)
+			if (LauncherOptions.LaunchGDB)
 			{
 				LaunchGDB();
 			}
-			if (!Options.ExitOnLaunch)
+			if (!LauncherOptions.ExitOnLaunch)
 			{
 				var output = GetOutput(process);
 				AddOutput(output);
@@ -56,7 +56,7 @@ namespace Mosa.Utility.Launcher
 
 		public Process LaunchVM()
 		{
-			switch (Options.Emulator)
+			switch (LauncherOptions.Emulator)
 			{
 				case EmulatorType.Qemu: return LaunchQemu(false);
 				case EmulatorType.Bochs: return LaunchBochs(false);
@@ -69,38 +69,50 @@ namespace Mosa.Utility.Launcher
 		{
 			string arg = " -L " + Quote(AppLocations.QEMUBIOSDirectory);
 
-			if (Options.PlatformType == PlatformType.x86)
+			if (LauncherOptions.PlatformType == PlatformType.x86)
 			{
 				arg += " -cpu qemu32,+sse4.1";
 			}
 
 			//arg = arg + " -vga vmware";
 
-			if (Options.SerialConnectionOption == SerialConnectionOption.Pipe)
+			if (LauncherOptions.NoDisplay)
+				arg += " -display none";
+
+			// We need as least 2 COM Ports:
+			// COM1 = Kernel log
+			// COM2 = MosaDebugger
+
+			arg += " -serial null"; // TODO: Redirect to file
+
+			if (LauncherOptions.SerialConnectionOption == SerialConnectionOption.Pipe)
 			{
-				arg = arg + " -serial pipe:" + Options.SerialPipeName;
+				arg = arg + " -serial pipe:" + LauncherOptions.SerialPipeName;
 			}
-			else if (Options.SerialConnectionOption == SerialConnectionOption.TCPServer)
+			else if (LauncherOptions.SerialConnectionOption == SerialConnectionOption.TCPServer)
 			{
-				arg = arg + " -serial tcp:" + Options.SerialConnectionHost + ":" + Options.SerialConnectionPort.ToString() + ",server,nowait";
+				arg = arg + " -serial tcp:" + LauncherOptions.SerialConnectionHost + ":" + LauncherOptions.SerialConnectionPort.ToString() + ",server,nowait";
 			}
-			else if (Options.SerialConnectionOption == SerialConnectionOption.TCPClient)
+			else if (LauncherOptions.SerialConnectionOption == SerialConnectionOption.TCPClient)
 			{
-				arg = arg + " -serial tcp:" + Options.SerialConnectionHost + ":" + Options.SerialConnectionPort.ToString() + ",client,nowait";
+				arg = arg + " -serial tcp:" + LauncherOptions.SerialConnectionHost + ":" + LauncherOptions.SerialConnectionPort.ToString() + ",client,nowait";
 			}
 
-			if (Options.EnableQemuGDB)
+			if (LauncherOptions.EnableQemuGDB)
 			{
-				arg += " -S -gdb tcp::" + Options.GDBPort.ToString();
+				arg += " -S -gdb tcp::" + LauncherOptions.GDBPort.ToString();
 			}
 
-			if (Options.ImageFormat == ImageFormat.ISO)
+			if (LauncherOptions.ImageFormat == ImageFormat.ISO)
 			{
-				arg = arg + " -cdrom " + Quote(Options.ImageFile);
+				arg = arg + " -cdrom " + Quote(LauncherOptions.ImageFile);
 			}
 			else
 			{
-				arg = arg + " -hda " + Quote(Options.ImageFile);
+				if (LauncherOptions.ImageFormat == ImageFormat.BIN)
+					arg = arg + " -kernel " + Quote(LauncherOptions.ImageFile);
+				else
+					arg = arg + " -hda " + Quote(LauncherOptions.ImageFile);
 			}
 
 			return LaunchApplication(AppLocations.QEMU, arg, getOutput);
@@ -108,8 +120,8 @@ namespace Mosa.Utility.Launcher
 
 		private Process LaunchBochs(bool getOutput)
 		{
-			var logfile = Path.Combine(Options.DestinationDirectory, Path.GetFileNameWithoutExtension(Options.SourceFile) + "-bochs.log");
-			var configfile = Path.Combine(Options.DestinationDirectory, Path.GetFileNameWithoutExtension(Options.SourceFile) + ".bxrc");
+			var logfile = Path.Combine(LauncherOptions.DestinationDirectory, Path.GetFileNameWithoutExtension(LauncherOptions.SourceFile) + "-bochs.log");
+			var configfile = Path.Combine(LauncherOptions.DestinationDirectory, Path.GetFileNameWithoutExtension(LauncherOptions.SourceFile) + ".bxrc");
 			var exeDir = Path.GetDirectoryName(AppLocations.BOCHS);
 
 			var fileVersionInfo = FileVersionInfo.GetVersionInfo(AppLocations.BOCHS);
@@ -122,7 +134,7 @@ namespace Mosa.Utility.Launcher
 
 			var sb = new StringBuilder();
 
-			sb.AppendLine("megs: " + Options.EmulatorMemoryInMB.ToString());
+			sb.AppendLine("megs: " + LauncherOptions.EmulatorMemoryInMB.ToString());
 			sb.AppendLine("ata0: enabled=1,ioaddr1=0x1f0,ioaddr2=0x3f0,irq=14");
 			sb.AppendLine("cpuid: mmx=1,sep=1," + simd + "=sse4_2,apic=xapic,aes=1,movbe=1,xsave=1");
 			sb.AppendLine("boot: cdrom,disk");
@@ -131,18 +143,19 @@ namespace Mosa.Utility.Launcher
 			sb.AppendLine("vgaromimage: file=" + Quote(Path.Combine(AppLocations.BOCHSBIOSDirectory, "VGABIOS-lgpl-latest")));
 			sb.AppendLine("display_library: x, options=" + Quote("gui_debug"));
 
-			if (Options.ImageFormat == ImageFormat.ISO)
+			if (LauncherOptions.ImageFormat == ImageFormat.ISO)
 			{
-				sb.AppendLine("ata0-master: type=cdrom,path=" + Quote(Options.ImageFile) + ",status=inserted");
+				sb.AppendLine("ata0-master: type=cdrom,path=" + Quote(LauncherOptions.ImageFile) + ",status=inserted");
 			}
 			else
 			{
-				sb.AppendLine("ata0-master: type=disk,path=" + Quote(Options.ImageFile) + ",biosdetect=none,cylinders=0,heads=0,spt=0");
+				sb.AppendLine("ata0-master: type=disk,path=" + Quote(LauncherOptions.ImageFile) + ",biosdetect=none,cylinders=0,heads=0,spt=0");
 			}
 
-			if (Options.SerialConnectionOption == SerialConnectionOption.Pipe)
+			sb.AppendLine(@"com1: enabled=1, mode=pipe-server, dev=\\.\pipe\MOSA1");
+			if (LauncherOptions.SerialConnectionOption == SerialConnectionOption.Pipe)
 			{
-				sb.AppendLine(@"com1: enabled=1, mode=pipe-server, dev=\\.\pipe\MOSA");
+				sb.AppendLine(@"com2: enabled=1, mode=pipe-server, dev=\\.\pipe\MOSA2");
 			}
 
 			string arg = "-q -f " + Quote(configfile);
@@ -154,39 +167,46 @@ namespace Mosa.Utility.Launcher
 
 		private Process LaunchVMwarePlayer(bool getOutput)
 		{
-			var logfile = Path.Combine(Options.DestinationDirectory, Path.GetFileNameWithoutExtension(Options.SourceFile) + "-vmx.log");
-			var configfile = Path.Combine(Options.DestinationDirectory, Path.GetFileNameWithoutExtension(Options.SourceFile) + ".vmx");
+			var logfile = Path.Combine(LauncherOptions.DestinationDirectory, Path.GetFileNameWithoutExtension(LauncherOptions.SourceFile) + "-vmx.log");
+			var configfile = Path.Combine(LauncherOptions.DestinationDirectory, Path.GetFileNameWithoutExtension(LauncherOptions.SourceFile) + ".vmx");
 
 			var sb = new StringBuilder();
 
 			sb.AppendLine(".encoding = \"windows-1252\"");
 			sb.AppendLine("config.version = \"8\"");
 			sb.AppendLine("virtualHW.version = \"4\"");
-			sb.AppendLine("memsize = " + Quote(Options.EmulatorMemoryInMB.ToString()));
+			sb.AppendLine("memsize = " + Quote(LauncherOptions.EmulatorMemoryInMB.ToString()));
 
-			sb.AppendLine("displayName = \"MOSA - " + Path.GetFileNameWithoutExtension(Options.SourceFile) + "\"");
+			sb.AppendLine("displayName = \"MOSA - " + Path.GetFileNameWithoutExtension(LauncherOptions.SourceFile) + "\"");
 			sb.AppendLine("guestOS = \"other\"");
 			sb.AppendLine("priority.grabbed = \"normal\"");
 			sb.AppendLine("priority.ungrabbed = \"normal\"");
 			sb.AppendLine("virtualHW.productCompatibility = \"hosted\"");
 			sb.AppendLine("ide0:0.present = \"TRUE\"");
-			sb.AppendLine("ide0:0.fileName = " + Quote(Options.ImageFile));
+			sb.AppendLine("ide0:0.fileName = " + Quote(LauncherOptions.ImageFile));
 
-			if (Options.ImageFormat == ImageFormat.ISO)
+			if (LauncherOptions.ImageFormat == ImageFormat.ISO)
 			{
 				sb.AppendLine("ide0:0.deviceType = \"cdrom-image\"");
 			}
 
 			sb.AppendLine("floppy0.present = \"FALSE\"");
 
-			if (Options.SerialConnectionOption == SerialConnectionOption.Pipe)
+			sb.AppendLine("serial0.present = \"TRUE\"");
+			sb.AppendLine("serial0.yieldOnMsrRead = \"FALSE\"");
+			sb.AppendLine("serial0.fileType = \"pipe\"");
+			sb.AppendLine("serial0.fileName = \"\\\\.\\pipe\\MOSA1\"");
+			sb.AppendLine("serial0.pipe.endPoint = \"server\"");
+			sb.AppendLine("serial0.tryNoRxLoss = \"FALSE\"");
+
+			if (LauncherOptions.SerialConnectionOption == SerialConnectionOption.Pipe)
 			{
-				sb.AppendLine("serial0.present = \"TRUE\"");
-				sb.AppendLine("serial0.yieldOnMsrRead = \"FALSE\"");
-				sb.AppendLine("serial0.fileType = \"pipe\"");
-				sb.AppendLine("serial0.fileName = \"\\\\.\\pipe\\MOSA\"");
-				sb.AppendLine("serial0.pipe.endPoint = \"server\"");
-				sb.AppendLine("serial0.tryNoRxLoss = \"FALSE\"");
+				sb.AppendLine("serial1.present = \"TRUE\"");
+				sb.AppendLine("serial1.yieldOnMsrRead = \"FALSE\"");
+				sb.AppendLine("serial1.fileType = \"pipe\"");
+				sb.AppendLine("serial1.fileName = \"\\\\.\\pipe\\MOSA2\"");
+				sb.AppendLine("serial1.pipe.endPoint = \"server\"");
+				sb.AppendLine("serial1.tryNoRxLoss = \"FALSE\"");
 			}
 
 			File.WriteAllText(configfile, sb.ToString());
@@ -198,29 +218,27 @@ namespace Mosa.Utility.Launcher
 
 		private void LaunchGDBDebugger()
 		{
-			string arg = " -debugfile " + Path.Combine(Options.DestinationDirectory, Path.GetFileNameWithoutExtension(Options.SourceFile) + ".debug");
-			arg += " -port " + Options.GDBPort.ToString();
+			string arg = " -debugfile " + Path.Combine(LauncherOptions.DestinationDirectory, Path.GetFileNameWithoutExtension(LauncherOptions.SourceFile) + ".debug");
+			arg += " -port " + LauncherOptions.GDBPort.ToString();
 			arg += " -connect";
-			arg += " -image " + Quote(Options.ImageFile);
+			arg += " -image " + Quote(LauncherOptions.ImageFile);
 			LaunchApplication("Mosa.Tool.GDBDebugger.exe", arg);
 		}
 
 		private void LaunchGDB()
 		{
-			var gdbscript = Path.Combine(Options.DestinationDirectory, Path.GetFileNameWithoutExtension(Options.SourceFile) + ".gdb");
+			var gdbscript = Path.Combine(LauncherOptions.DestinationDirectory, Path.GetFileNameWithoutExtension(LauncherOptions.SourceFile) + ".gdb");
 
-			string arg = " -d " + Quote(Options.DestinationDirectory);
-			arg = arg + " -s " + Quote(Path.Combine(Options.DestinationDirectory, Path.GetFileNameWithoutExtension(Options.SourceFile) + ".bin"));
+			string arg = " -d " + Quote(LauncherOptions.DestinationDirectory);
+			arg = arg + " -s " + Quote(Path.Combine(LauncherOptions.DestinationDirectory, Path.GetFileNameWithoutExtension(LauncherOptions.SourceFile) + ".bin"));
 			arg = arg + " -x " + Quote(gdbscript);
 
-			var textSection = Linker.LinkerSections[(int)SectionKind.Text];
-
-			const uint multibootHeaderLength = Builder.MultibootHeaderLength;
-			ulong startingAddress = textSection.VirtualAddress + multibootHeaderLength;
+			// FIXME!
+			ulong startingAddress = Linker.Sections[(int)SectionKind.Text].VirtualAddress + Builder.MultibootHeaderLength;
 
 			var sb = new StringBuilder();
 
-			sb.AppendLine("target remote localhost:" + Options.GDBPort.ToString());
+			sb.AppendLine("target remote localhost:" + LauncherOptions.GDBPort.ToString());
 			sb.AppendLine("set confirm off ");
 			sb.AppendLine("set disassemble-next-line on");
 			sb.AppendLine("set disassembly-flavor intel");

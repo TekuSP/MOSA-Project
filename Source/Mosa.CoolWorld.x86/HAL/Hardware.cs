@@ -13,20 +13,27 @@ namespace Mosa.CoolWorld.x86.HAL
 	public sealed class Hardware : BaseHardwareAbstraction
 	{
 		/// <summary>
-		/// Requests a block of memory from the kernel
+		/// Gets the size of the page.
+		/// </summary>
+		public override uint PageSize { get { return PageFrameAllocator.PageSize; } }
+
+		/// <summary>
+		/// Gets a block of memory from the kernel
 		/// </summary>
 		/// <param name="address">The address.</param>
 		/// <param name="size">The size.</param>
 		/// <returns></returns>
-		public override Memory RequestPhysicalMemory(uint address, uint size)
+		public override ConstrainedPointer GetPhysicalMemory(IntPtr address, uint size)
 		{
+			var start = (uint)address.ToInt32();
+
 			// Map physical memory space to virtual memory space
-			for (uint at = address; at < address + size; at += 4096)
+			for (var at = start; at < start + size; at += PageSize)
 			{
 				PageTable.MapVirtualAddressToPhysical(at, at);
 			}
 
-			return new Memory(new IntPtr(address), size);
+			return new ConstrainedPointer(address, size);
 		}
 
 		/// <summary>
@@ -63,16 +70,16 @@ namespace Mosa.CoolWorld.x86.HAL
 		}
 
 		/// <summary>
-		/// Allocates the memory.
+		/// Allocates the virtual memory.
 		/// </summary>
 		/// <param name="size">The size.</param>
 		/// <param name="alignment">The alignment.</param>
 		/// <returns></returns>
-		public override Memory AllocateMemory(uint size, uint alignment)
+		public override ConstrainedPointer AllocateVirtualMemory(uint size, uint alignment)
 		{
-			var address = KernelMemory.AllocateMemory(size);
+			var address = KernelMemory.AllocateVirtualMemory(size);
 
-			return new Memory(address, size);
+			return new ConstrainedPointer(address, size);
 		}
 
 		/// <summary>
@@ -80,9 +87,9 @@ namespace Mosa.CoolWorld.x86.HAL
 		/// </summary>
 		/// <param name="memory">The memory.</param>
 		/// <returns></returns>
-		public override uint GetPhysicalAddress(Memory memory)
+		public override IntPtr TranslateVirtualToPhysicalAddress(IntPtr virtualAddress)
 		{
-			return PageTable.GetPhysicalAddressFromVirtual(memory.Address);
+			return PageTable.GetPhysicalAddressFromVirtual(virtualAddress);
 		}
 
 		/// <summary>
@@ -90,7 +97,7 @@ namespace Mosa.CoolWorld.x86.HAL
 		/// </summary>
 		/// <param name="port">The port number.</param>
 		/// <returns></returns>
-		public override IOPortReadWrite RequestReadWriteIOPort(ushort port)
+		public override BaseIOPortReadWrite GetReadWriteIOPort(ushort port)
 		{
 			return new X86IOPortReadWrite(port);
 		}
@@ -100,7 +107,7 @@ namespace Mosa.CoolWorld.x86.HAL
 		/// </summary>
 		/// <param name="port">The port number.</param>
 		/// <returns></returns>
-		public override IOPortRead RequestReadIOPort(ushort port)
+		public override BaseIOPortRead GetReadIOPort(ushort port)
 		{
 			return new X86IOPortReadWrite(port);
 		}
@@ -110,7 +117,7 @@ namespace Mosa.CoolWorld.x86.HAL
 		/// </summary>
 		/// <param name="port">The port number.</param>
 		/// <returns></returns>
-		public override IOPortWrite RequestWriteIOPort(ushort port)
+		public override BaseIOPortWrite GetWriteIOPort(ushort port)
 		{
 			return new X86IOPortWrite(port);
 		}
@@ -121,7 +128,7 @@ namespace Mosa.CoolWorld.x86.HAL
 		/// <param name="message">The message.</param>
 		public override void DebugWrite(string message)
 		{
-			Boot.Debug.Write(message);
+			Boot.Console.Write(message);
 		}
 
 		/// <summary>
@@ -130,7 +137,7 @@ namespace Mosa.CoolWorld.x86.HAL
 		/// <param name="message">The message.</param>
 		public override void DebugWriteLine(string message)
 		{
-			Boot.Debug.WriteLine(message);
+			Boot.Console.WriteLine(message);
 		}
 
 		/// <summary>

@@ -17,9 +17,17 @@ namespace Mosa.Compiler.Framework.RegisterAllocator
 			Max = 5,
 		}
 
-		public LiveRange LiveRange { get; }
+		public readonly VirtualRegister VirtualRegister;
 
-		public VirtualRegister VirtualRegister { get; }
+		public readonly SlotIndex Start;
+		public readonly SlotIndex End;
+
+		public int Length { get { return End - Start; } }
+
+		public readonly LiveRange LiveRange;
+
+		public int StartValue { get { return LiveRange.Start.Value; } }
+		public int EndValue { get { return LiveRange.End.Value; } }
 
 		public int SpillValue { get; set; }
 
@@ -45,75 +53,57 @@ namespace Mosa.Compiler.Framework.RegisterAllocator
 
 		#region Short Cuts
 
-		public SlotIndex Start { get { return LiveRange.Start; } }
+		public IEnumerable<SlotIndex> UsePositions { get { return LiveRange.UsePositions; } }
 
-		public SlotIndex End { get { return LiveRange.End; } }
-
-		public IList<SlotIndex> UsePositions { get { return LiveRange.UsePositions; } }
-
-		public IList<SlotIndex> DefPositions { get { return LiveRange.DefPositions; } }
-
-		public int Length { get { return LiveRange.Length; } }
+		public IEnumerable<SlotIndex> DefPositions { get { return LiveRange.DefPositions; } }
 
 		public bool IsEmpty { get { return LiveRange.IsEmpty; } }
 
-		public SlotIndex Minimum { get { return LiveRange.Minimum; } }
+		public SlotIndex First { get { return LiveRange.First; } }
 
-		public SlotIndex Maximum { get { return LiveRange.Maximum; } }
+		public SlotIndex Last { get { return LiveRange.Last; } }
 
 		public bool IsAdjacent(SlotIndex start, SlotIndex end)
 		{
-			return LiveRange.IsAdjacent(start, end);
+			return start == End || end == Start;
 		}
 
 		public bool Intersects(SlotIndex start, SlotIndex end)
 		{
-			return LiveRange.Intersects(start, end);
+			return (Start <= start && End > start) || (start <= Start && end > Start);
 		}
 
-		public bool IsAdjacent(Interval other)
+		public bool Contains(SlotIndex at)
 		{
-			return LiveRange.IsAdjacent(other);
-		}
-
-		public bool Intersects(Interval other)
-		{
-			return LiveRange.Intersects(other);
-		}
-
-		public bool Contains(SlotIndex start)
-		{
-			return LiveRange.Contains(start);
+			return at >= Start && at < End;
 		}
 
 		public bool IsAdjacent(LiveInterval other)
 		{
-			return LiveRange.IsAdjacent(other.LiveRange);
+			return IsAdjacent(other.Start, other.End);
 		}
 
 		public bool Intersects(LiveInterval other)
 		{
-			return LiveRange.Intersects(other.LiveRange);
+			return Intersects(other.Start, other.End);
 		}
 
 		#endregion Short Cuts
 
-		private LiveInterval(VirtualRegister virtualRegister, SlotIndex start, SlotIndex end, IList<SlotIndex> uses, IList<SlotIndex> defs)
+		public LiveInterval(VirtualRegister virtualRegister, SlotIndex start, SlotIndex end)
 		{
-			LiveRange = new LiveRange(start, end, uses, defs);
-
 			VirtualRegister = virtualRegister;
+			Start = start;
+			End = end;
+
+			LiveRange = new LiveRange(start, end, virtualRegister);
+
 			SpillValue = 0;
 			Stage = AllocationStage.Initial;
 			ForceSpilled = false;
 			NeverSpill = false;
 
 			TooSmallToSplit = IsTooSmallToSplit();
-		}
-
-		public LiveInterval(VirtualRegister virtualRegister, SlotIndex start, SlotIndex end)
-			: this(virtualRegister, start, end, virtualRegister.UsePositions, virtualRegister.DefPositions)
-		{
 		}
 
 		public LiveInterval CreateExpandedLiveInterval(LiveInterval interval)
@@ -140,28 +130,18 @@ namespace Mosa.Compiler.Framework.RegisterAllocator
 			{
 				var firstUse = LiveRange.FirstUse;
 
-				Debug.Assert(firstUse != null);
+				Debug.Assert(firstUse.IsNotNull);
 
-				if (firstUse.HalfStepBack == Start && firstUse.HalfStepForward == End)
+				if (firstUse.Before == Start && firstUse.After == End)
 					return true;
 			}
-
-			//if (LiveRange.DefCount == 1)
-			//{
-			//	var firstDef = LiveRange.FirstDef;
-
-			//	Debug.Assert(firstDef != null);
-
-			//	if ((firstDef == Start) && (firstDef.HalfStepForward == End))
-			//		return true;
-			//}
 
 			return false;
 		}
 
 		public override string ToString()
 		{
-			return VirtualRegister + " between " + LiveRange;
+			return $"{VirtualRegister} between {LiveRange}";
 		}
 
 		public void Evict()
@@ -171,7 +151,7 @@ namespace Mosa.Compiler.Framework.RegisterAllocator
 
 		private LiveInterval CreateSplit(LiveRange liveRange)
 		{
-			return new LiveInterval(VirtualRegister, liveRange.Start, liveRange.End, LiveRange.UsePositions, LiveRange.DefPositions);
+			return new LiveInterval(VirtualRegister, liveRange.Start, liveRange.End);
 		}
 
 		public List<LiveInterval> SplitAt(SlotIndex at)

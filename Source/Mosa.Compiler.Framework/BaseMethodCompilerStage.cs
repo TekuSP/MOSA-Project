@@ -112,9 +112,20 @@ namespace Mosa.Compiler.Framework
 		protected MethodCompiler MethodCompiler { get; private set; }
 
 		/// <summary>
+		/// Hold the method compiler
+		/// </summary>
+		protected MethodScanner MethodScanner { get; private set; }
+
+		/// <summary>
+		/// Retrieves the compilation scheduler.
+		/// </summary>
+		/// <value>The compilation scheduler.</value>
+		public MethodScheduler MethodScheduler { get; private set; }
+
+		/// <summary>
 		/// Gets the method data.
 		/// </summary>
-		protected CompilerMethodData MethodData { get { return MethodCompiler.MethodData; } }
+		protected MethodData MethodData { get { return MethodCompiler.MethodData; } }
 
 		/// <summary>
 		/// Gets the linker.
@@ -142,6 +153,16 @@ namespace Mosa.Compiler.Framework
 		protected Operand ConstantZero { get { return MethodCompiler.ConstantZero; } }
 
 		/// <summary>
+		/// Gets the 32-bit constant zero.
+		/// </summary>
+		protected Operand ConstantZero32 { get { return MethodCompiler.ConstantZero32; } }
+
+		/// <summary>
+		/// Gets the 64-bit constant zero.
+		/// </summary>
+		protected Operand ConstantZero64 { get { return MethodCompiler.ConstantZero64; } }
+
+		/// <summary>
 		/// Gets the stack frame.
 		/// </summary>
 		protected Operand StackFrame { get { return MethodCompiler.StackFrame; } }
@@ -157,7 +178,7 @@ namespace Mosa.Compiler.Framework
 		/// <value>
 		/// <c>true</c> if this instance has protected regions; otherwise, <c>false</c>.
 		/// </value>
-		protected bool HasProtectedRegions { get { return MethodCompiler.Method.ExceptionHandlers.Count != 0; } }
+		protected bool HasProtectedRegions { get { return Method.ExceptionHandlers.Count != 0; } }
 
 		/// <summary>
 		/// Gets a value indicating whether this instance has code.
@@ -176,20 +197,21 @@ namespace Mosa.Compiler.Framework
 		/// <summary>
 		/// Setups the specified compiler.
 		/// </summary>
-		/// <param name="baseCompiler">The base compiler.</param>
-		public void Initialize(Compiler baseCompiler)
+		/// <param name="compiler">The base compiler.</param>
+		public void Initialize(Compiler compiler)
 		{
-			Architecture = baseCompiler.Architecture;
-			TypeSystem = baseCompiler.TypeSystem;
-			TypeLayout = baseCompiler.TypeLayout;
+			Architecture = compiler.Architecture;
+			TypeSystem = compiler.TypeSystem;
+			TypeLayout = compiler.TypeLayout;
+			MethodScheduler = compiler.MethodScheduler;
+			CompilerOptions = compiler.CompilerOptions;
+			MethodScanner = compiler.MethodScanner;
 
 			NativePointerSize = Architecture.NativePointerSize;
 			NativeAlignment = Architecture.NativeAlignment;
 			NativeInstructionSize = Architecture.NativeInstructionSize;
 			Is32BitPlatform = Architecture.Is32BitPlatform;
 			Is64BitPlatform = Architecture.Is64BitPlatform;
-
-			CompilerOptions = baseCompiler.CompilerOptions;
 
 			Initialize();
 		}
@@ -230,11 +252,11 @@ namespace Mosa.Compiler.Framework
 			catch (Exception ex)
 			{
 				MethodCompiler.Stop();
-				NewCompilerTraceEvent(CompilerEvent.Exception, "Method: " + Method + " -> " + ex);
+				PostCompilerTraceEvent(CompilerEvent.Exception, "Method: " + Method + " -> " + ex);
 				MethodCompiler.Compiler.Stop();
 			}
 
-			SubmitTraceLogs(traceLogs);
+			PostTraceLogs(traceLogs);
 
 			Finish();
 
@@ -433,6 +455,9 @@ namespace Mosa.Compiler.Framework
 		{
 			for (var node = block.AfterFirst; !node.IsBlockEndInstruction; node = node.Next)
 			{
+				if (node.IsEmpty)
+					continue;
+
 				node.Empty();
 			}
 		}
@@ -445,9 +470,9 @@ namespace Mosa.Compiler.Framework
 		/// <param name="newTarget">The new target block.</param>
 		protected void ReplaceBranchTargets(BasicBlock block, BasicBlock oldTarget, BasicBlock newTarget)
 		{
-			for (var node = block.Last; !node.IsBlockStartInstruction; node = node.Previous)
+			for (var node = block.BeforeLast; !node.IsBlockStartInstruction; node = node.Previous)
 			{
-				if (node.IsEmpty)
+				if (node.IsEmptyOrNop)
 					continue;
 
 				if (node.BranchTargetsCount == 0)
@@ -544,7 +569,7 @@ namespace Mosa.Compiler.Framework
 
 		protected MosaExceptionHandler FindImmediateExceptionContext(int label)
 		{
-			foreach (var handler in MethodCompiler.Method.ExceptionHandlers)
+			foreach (var handler in Method.ExceptionHandlers)
 			{
 				if (handler.IsLabelWithinTry(label) || handler.IsLabelWithinHandler(label))
 				{
@@ -557,11 +582,11 @@ namespace Mosa.Compiler.Framework
 
 		protected MosaExceptionHandler FindNextEnclosingFinallyContext(MosaExceptionHandler exceptionContext)
 		{
-			int index = MethodCompiler.Method.ExceptionHandlers.IndexOf(exceptionContext);
+			int index = Method.ExceptionHandlers.IndexOf(exceptionContext);
 
-			for (int i = index + 1; i < MethodCompiler.Method.ExceptionHandlers.Count; i++)
+			for (int i = index + 1; i < Method.ExceptionHandlers.Count; i++)
 			{
-				var entry = MethodCompiler.Method.ExceptionHandlers[i];
+				var entry = Method.ExceptionHandlers[i];
 
 				if (!entry.IsLabelWithinTry(exceptionContext.TryStart))
 					return null;
@@ -577,11 +602,9 @@ namespace Mosa.Compiler.Framework
 
 		protected MosaExceptionHandler FindFinallyExceptionContext(InstructionNode node)
 		{
-			MosaExceptionHandler innerClause = null;
-
 			int label = node.Label;
 
-			foreach (var handler in MethodCompiler.Method.ExceptionHandlers)
+			foreach (var handler in Method.ExceptionHandlers)
 			{
 				if (handler.IsLabelWithinHandler(label))
 				{
@@ -597,7 +620,7 @@ namespace Mosa.Compiler.Framework
 			int leaveLabel = node.Label;
 			int targetLabel = node.BranchTargets[0].First.Label;
 
-			foreach (var handler in MethodCompiler.Method.ExceptionHandlers)
+			foreach (var handler in Method.ExceptionHandlers)
 			{
 				bool one = handler.IsLabelWithinTry(leaveLabel);
 				bool two = handler.IsLabelWithinTry(targetLabel);
@@ -632,64 +655,55 @@ namespace Mosa.Compiler.Framework
 
 		#region ITraceSectionFactory
 
-		TraceLog ITraceFactory.CreateTraceLog(string section)
+		TraceLog ITraceFactory.CreateTraceLog(string section, int traceLevel)
 		{
-			return CreateTraceLog(section);
+			return CreateTraceLog(section, traceLevel);
 		}
 
 		#endregion ITraceSectionFactory
 
 		#region Trace Helper Methods
 
-		public bool IsTraceable(int traceLevel = 0)
+		public bool IsTraceable(int traceLevel)
 		{
-			if (CompilerOptions.TraceLevel == 0)
-				return false;
-
-			if (traceLevel > CompilerOptions.TraceLevel)
-				return false;
-
-			return MethodCompiler.Trace.TraceFilter.IsMatch(MethodCompiler.Method, FormattedStageName);
+			return MethodCompiler.Trace.IsTraceable(traceLevel);
 		}
 
 		protected TraceLog CreateTraceLog(int traceLevel = 0)
 		{
-			bool active = IsTraceable(traceLevel);
+			if (!IsTraceable(traceLevel))
+				return null;
 
-			var traceLog = new TraceLog(TraceType.DebugTrace, MethodCompiler.Method, FormattedStageName, active);
+			var traceLog = new TraceLog(TraceType.MethodDebug, MethodCompiler.Method, FormattedStageName);
 
-			if (active)
-				traceLogs.Add(traceLog);
+			traceLogs.Add(traceLog);
 
 			return traceLog;
 		}
 
 		public TraceLog CreateTraceLog(string section)
 		{
-			return CreateTraceLog(0, section);
+			return CreateTraceLog(section, 0);
 		}
 
-		public TraceLog CreateTraceLog(int traceLevel, string section)
+		public TraceLog CreateTraceLog(string section, int traceLevel)
 		{
-			bool active = IsTraceable(traceLevel);
+			if (!IsTraceable(traceLevel))
+				return null;
 
-			var traceLog = new TraceLog(TraceType.DebugTrace, MethodCompiler.Method, FormattedStageName, section, active);
+			var traceLog = new TraceLog(TraceType.MethodDebug, MethodCompiler.Method, FormattedStageName, section);
 
-			if (active)
-				traceLogs.Add(traceLog);
+			traceLogs.Add(traceLog);
 
 			return traceLog;
 		}
 
-		private void SubmitTraceLog(TraceLog traceLog)
+		private void PostTraceLog(TraceLog traceLog)
 		{
-			if (!traceLog.Active)
-				return;
-
-			MethodCompiler.Trace.NewTraceLog(traceLog);
+			MethodCompiler.Trace.PostTraceLog(traceLog);
 		}
 
-		private void SubmitTraceLogs(List<TraceLog> traceLogs)
+		private void PostTraceLogs(List<TraceLog> traceLogs)
 		{
 			if (traceLogs == null)
 				return;
@@ -698,14 +712,14 @@ namespace Mosa.Compiler.Framework
 			{
 				if (traceLog != null)
 				{
-					SubmitTraceLog(traceLog);
+					PostTraceLog(traceLog);
 				}
 			}
 		}
 
-		protected void NewCompilerTraceEvent(CompilerEvent compileEvent, string message)
+		protected void PostCompilerTraceEvent(CompilerEvent compileEvent, string message)
 		{
-			MethodCompiler.Trace.NewCompilerTraceEvent(compileEvent, message, MethodCompiler.ThreadID);
+			MethodCompiler.Trace.PostCompilerTraceEvent(compileEvent, message, MethodCompiler.ThreadID);
 		}
 
 		#endregion Trace Helper Methods
@@ -718,7 +732,7 @@ namespace Mosa.Compiler.Framework
 		/// <param name="counter">The counter.</param>
 		public void UpdateCounter(Counter counter)
 		{
-			MethodData.Counters.UpdateNoLock(counter.Name, counter.Count);
+			MethodData.Counters.UpdateSkipLock(counter.Name, counter.Count);
 		}
 
 		/// <summary>
@@ -955,6 +969,22 @@ namespace Mosa.Compiler.Framework
 				|| instruction == IRInstruction.MoveInt64
 				|| instruction == IRInstruction.MoveFloatR8
 				|| instruction == IRInstruction.MoveFloatR4;
+		}
+
+		public static void ReplaceOperand(Operand target, Operand replacement)
+		{
+			foreach (var node in target.Uses.ToArray())
+			{
+				for (int i = 0; i < node.OperandCount; i++)
+				{
+					var operand = node.GetOperand(i);
+
+					if (target == operand)
+					{
+						node.SetOperand(i, replacement);
+					}
+				}
+			}
 		}
 
 		#endregion Helper Methods

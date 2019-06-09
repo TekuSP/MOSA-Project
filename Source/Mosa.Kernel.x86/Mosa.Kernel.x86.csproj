@@ -13,8 +13,7 @@
     <DefaultClientScript>JScript</DefaultClientScript>
     <DefaultHTMLPageLayout>Grid</DefaultHTMLPageLayout>
     <DefaultTargetSchema>IE50</DefaultTargetSchema>
-    <DelaySign>false</DelaySign>
-    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>
     </AppDesignerFolder>
@@ -45,6 +44,7 @@
     <DebugType>full</DebugType>
     <NoWarn>1685,0219,0414</NoWarn>
     <Prefer32Bit>false</Prefer32Bit>
+    <LangVersion>7.2</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugSymbols>True</DebugSymbols>
@@ -64,9 +64,11 @@
     <WarningLevel>2</WarningLevel>
     <NoWarn>1685</NoWarn>
     <Prefer32Bit>false</Prefer32Bit>
+    <LangVersion>7.2</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Address.cs" />
+    <Compile Include="VBE.cs" />
     <Compile Include="SSE.cs" />
     <Compile Include="IDTStack.cs" />
     <Compile Include="IOPort.cs" />
@@ -100,6 +102,7 @@
     <Compile Include="Smbios\SmbiosManager.cs" />
     <Compile Include="Smbios\SmbiosStructure.cs" />
     <Compile Include="VirtualPageAllocator.cs" />
+    <Compile Include="Logger.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Mosa.ClassLib\Mosa.ClassLib.csproj">

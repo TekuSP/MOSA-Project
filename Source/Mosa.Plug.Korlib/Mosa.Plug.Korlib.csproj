@@ -13,8 +13,7 @@
     <DefaultClientScript>JScript</DefaultClientScript>
     <DefaultHTMLPageLayout>Grid</DefaultHTMLPageLayout>
     <DefaultTargetSchema>IE50</DefaultTargetSchema>
-    <DelaySign>false</DelaySign>
-    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>
     </AppDesignerFolder>
@@ -45,6 +44,7 @@
     <NoStdLib>true</NoStdLib>
     <NoWarn>1685</NoWarn>
     <Prefer32Bit>false</Prefer32Bit>
+    <LangVersion>7.2</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugSymbols>True</DebugSymbols>
@@ -65,6 +65,7 @@
     <NoStdLib>true</NoStdLib>
     <NoWarn>1685</NoWarn>
     <Prefer32Bit>false</Prefer32Bit>
+    <LangVersion>7.2</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Mosa.Korlib\Mosa.Korlib.csproj">
@@ -81,10 +82,12 @@
     <Compile Include="Runtime\RuntimeCustomAttributeData.cs" />
     <Compile Include="Runtime\RuntimeType.cs" />
     <Compile Include="Runtime\RuntimeTypeInfo.cs" />
-    <Compile Include="KorlibInternal.cs" />
+    <Compile Include="Internal.cs" />
     <Compile Include="System.Runtime.CompilerServices\Unsafe.cs" />
     <Compile Include="System.Runtime.CompilerServices\RuntimeHelpersPlug.cs" />
     <Compile Include="System.Runtime.InteropServices\Marshal.cs" />
+    <Compile Include="System\MathF.CoreCLR.cs" />
+    <Compile Include="System\Math.CoreCLR.cs" />
     <Compile Include="System\ObjectPlug.cs" />
     <Compile Include="System\ArrayPlug.cs" />
     <Compile Include="System\TypePlug.cs" />

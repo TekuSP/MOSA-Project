@@ -37,6 +37,11 @@ namespace Mosa.Compiler.Framework
 		public string MapFile { get; set; }
 
 		/// <summary>
+		/// Gets or sets the compile time file.
+		/// </summary>
+		public string CompileTimeFile { get; set; }
+
+		/// <summary>
 		/// Gets or sets the map file.
 		/// </summary>
 		public string DebugFile { get; set; }
@@ -84,7 +89,12 @@ namespace Mosa.Compiler.Framework
 		/// <summary>
 		/// Gets or sets a value indicating whether [enable IR long operand conversion].
 		/// </summary>
-		public bool IRLongExpansion { get; set; }
+		public bool EnableIRLongExpansion { get; set; }
+
+		/// <summary>
+		/// Gets or sets a value indicating whether [enable bit estimator].
+		/// </summary>
+		public bool EnableBitTracker { get; set; }
 
 		/// <summary>
 		/// Gets or sets a value indicating whether [enable platform optimizations].
@@ -142,6 +152,11 @@ namespace Mosa.Compiler.Framework
 		public List<string> SourceFiles { get; set; } = new List<string>();
 
 		/// <summary>
+		/// Gets or sets a value indicating whether [enable method scanner].
+		/// </summary>
+		public bool EnableMethodScanner { get; set; }
+
+		/// <summary>
 		/// Adds additional sections to the Elf-File.
 		/// </summary>
 		public MosaLinker.CreateExtraSectionsDelegate CreateExtraSections { get; set; }
@@ -173,6 +188,9 @@ namespace Mosa.Compiler.Framework
 		{
 			foreach (var file in files)
 			{
+				if (file == null)
+					continue;
+
 				AddSearchPath(Path.GetDirectoryName(file.FullName));
 			}
 		}
@@ -209,6 +227,9 @@ namespace Mosa.Compiler.Framework
 		{
 			foreach (var file in files)
 			{
+				if (file == null)
+					continue;
+
 				AddSourceFile(file.FullName);
 			}
 		}
@@ -307,10 +328,12 @@ namespace Mosa.Compiler.Framework
 			EmitStaticRelocations = true;
 			TwoPassOptimizations = true;
 			EnableStatistics = true;
-			IRLongExpansion = true;
+			EnableIRLongExpansion = true;
 			EnableValueNumbering = true;
 			EnableLoopInvariantCodeMotion = true;
 			EnablePlatformOptimizations = true;
+			EnableMethodScanner = false;
+			EnableBitTracker = true;
 		}
 	}
 }

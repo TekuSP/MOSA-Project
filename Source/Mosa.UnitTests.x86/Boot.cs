@@ -29,18 +29,18 @@ namespace Mosa.UnitTests.x86
 
 		private static void Setup()
 		{
+			Logger.Log("Initialize Kernel");
+
 			IDT.SetInterruptHandler(null);
 			Panic.Setup();
-			Debugger.Setup(Serial.COM1);
+			Debugger.Setup(Serial.COM2);
 
 			// Initialize interrupts
 			PIC.Setup();
 			IDT.Setup();
 			GDT.Setup();
 
-			// ThreadScheduler.Setup();
-
-			//Runtime.Internal.Setup();
+			Logger.Log("Kernel initialized");
 		}
 
 		public static void EnterTestReadyLoop()

@@ -24,12 +24,12 @@ namespace Mosa.Compiler.Framework.Stages
 
 		private BitArray ParamReadOnly;
 
-		private Counter InstructionRemovalCount = new Counter("ValueNumbering.IRInstructionRemoved");
-		private Counter ConstantFoldingAndStrengthReductionCount = new Counter("ValueNumbering.ConstantFoldingAndStrengthReduction");
-		private Counter SubexpressionEliminationCount = new Counter("ValueNumbering.SubexpressionElimination");
-		private Counter ParameterLoadEliminationCount = new Counter("ValueNumbering.ParameterLoadElimination");
-		private Counter DeadCodeEliminationCount = new Counter("ValueNumbering.DeadCodeElimination");
-		private Counter StrengthReductionAndSimplificationCount = new Counter("ValueNumbering.StrengthReductionAndSimplification");
+		private Counter InstructionRemovalCount = new Counter("ValueNumberingStage.IRInstructionRemoved");
+		private Counter ConstantFoldingAndStrengthReductionCount = new Counter("ValueNumberingStage.ConstantFoldingAndStrengthReduction");
+		private Counter SubexpressionEliminationCount = new Counter("ValueNumberingStage.SubexpressionElimination");
+		private Counter ParameterLoadEliminationCount = new Counter("ValueNumberingStage.ParameterLoadElimination");
+		private Counter DeadCodeEliminationCount = new Counter("ValueNumberingStage.DeadCodeElimination");
+		private Counter StrengthReductionAndSimplificationCount = new Counter("ValueNumberingStage.StrengthReductionAndSimplification");
 
 		private class Expression
 		{
@@ -100,7 +100,7 @@ namespace Mosa.Compiler.Framework.Stages
 
 			ParamReadOnly = new BitArray(MethodCompiler.Parameters.Length, false);
 
-			var traceParameters = CreateTraceLog(5, "Parameters");
+			var traceParameters = CreateTraceLog("Parameters", 5);
 
 			foreach (var operand in MethodCompiler.Parameters)
 			{
@@ -117,7 +117,7 @@ namespace Mosa.Compiler.Framework.Stages
 
 				ParamReadOnly[operand.Index] = !write;
 
-				if (traceParameters.Active) traceParameters.Log(operand + ": " + (write ? "Writable" : "ReadOnly"));
+				traceParameters?.Log($"{operand}: {(write ? "Writable" : "ReadOnly")}");
 			}
 		}
 
@@ -170,7 +170,7 @@ namespace Mosa.Compiler.Framework.Stages
 
 		private void ValueNumber(BasicBlock block, out List<BasicBlock> nextblocks, out List<Expression> newExpressions)
 		{
-			if (trace.Active) trace.Log($"Processing Block: {block}");
+			trace?.Log($"Processing Block: {block}");
 
 			//Debug.Assert(!Processed.Get(block.Sequence));
 
@@ -217,7 +217,7 @@ namespace Mosa.Compiler.Framework.Stages
 						var w = GetValueNumber(node.Operand1);
 						SetValueNumber(node.Result, w);
 
-						if (trace.Active) trace.Log($"Removed Unless PHI: {node}");
+						trace?.Log($"Removed Unless PHI: {node}");
 
 						node.SetInstruction(IRInstruction.Nop);
 						InstructionRemovalCount++;
@@ -232,7 +232,7 @@ namespace Mosa.Compiler.Framework.Stages
 						var w = GetValueNumber(redundant);
 						SetValueNumber(node.Result, w);
 
-						if (trace.Active) trace.Log($"Removed Redundant PHI: {node}");
+						trace?.Log($"Removed Redundant PHI: {node}");
 
 						node.SetInstruction(IRInstruction.Nop);
 						InstructionRemovalCount++;
@@ -333,7 +333,7 @@ namespace Mosa.Compiler.Framework.Stages
 				{
 					var w = GetValueNumber(match.ValueNumber);
 
-					if (trace.Active) trace.Log($"Found Expression Match: {node}");
+					trace?.Log($"Found Expression Match: {node}");
 
 					SetValueNumber(node.Result, w);
 
@@ -347,7 +347,7 @@ namespace Mosa.Compiler.Framework.Stages
 				}
 				else
 				{
-					if (trace.Active) trace.Log($"No Expression Found: {node}");
+					trace?.Log($"No Expression Found: {node}");
 				}
 
 				var newExpression = new Expression()
@@ -396,7 +396,7 @@ namespace Mosa.Compiler.Framework.Stages
 					// Efficient!
 					nextblocks.Add(children[0]);
 
-					//if (trace.Active) trace.Log("Queue Block:" + children[0]);
+					//trace?.Log("Queue Block:" + children[0]);
 				}
 				else if (ReversePostOrder.Count < 32)
 				{
@@ -407,7 +407,7 @@ namespace Mosa.Compiler.Framework.Stages
 						{
 							nextblocks.Add(child);
 
-							//if (trace.Active) trace.Log("Queue Block:" + child);
+							//trace?.Log("Queue Block:" + child);
 						}
 					}
 				}
@@ -427,7 +427,7 @@ namespace Mosa.Compiler.Framework.Stages
 						{
 							nextblocks.Add(child);
 
-							//if (trace.Active) trace.Log("Queue Block:" + child);
+							//trace?.Log("Queue Block:" + child);
 						}
 					}
 				}
@@ -439,6 +439,12 @@ namespace Mosa.Compiler.Framework.Stages
 			if (node.Instruction.IsParameterLoad
 				&& node.Instruction != IRInstruction.LoadParamCompound
 				&& ParamReadOnly.Get(node.Operand1.Index))
+			{
+				return true;
+			}
+
+			if (node.Instruction == IRInstruction.AddressOf
+				&& (node.Operand1.IsStackLocal || node.Operand1.IsStaticField))
 			{
 				return true;
 			}
@@ -471,14 +477,14 @@ namespace Mosa.Compiler.Framework.Stages
 
 			if (node.Operand1.IsConstant)
 				hash = UpdateHash(hash, (int)node.Operand1.ConstantUnsignedLongInteger);
-			else if (node.Operand1.IsVirtualRegister)
-				hash = UpdateHash(hash, (int)node.Operand1.Index);
+			else if (node.Operand1.IsVirtualRegister || node.Operand1.IsStackLocal)
+				hash = UpdateHash(hash, node.Operand1.Index);
 
 			if (node.OperandCount >= 2)
 				if (node.Operand2.IsConstant)
 					hash = UpdateHash(hash, (int)node.Operand2.ConstantUnsignedLongInteger);
-				else if (node.Operand2.IsVirtualRegister)
-					hash = UpdateHash(hash, (int)node.Operand2.Index);
+				else if (node.Operand2.IsVirtualRegister || node.Operand2.IsStackLocal)
+					hash = UpdateHash(hash, node.Operand2.Index);
 
 			return hash;
 		}
@@ -489,7 +495,7 @@ namespace Mosa.Compiler.Framework.Stages
 			return list;
 		}
 
-		private static bool IsEqual(Operand operand1, Operand operand2)
+		private static bool IsEqual(Operand operand1, Operand operand2, BaseInstruction instruction = null)
 		{
 			if (operand1 == operand2)
 				return true;
@@ -508,6 +514,20 @@ namespace Mosa.Compiler.Framework.Stages
 				&& operand1.ConstantDoubleFloatingPoint == operand2.ConstantDoubleFloatingPoint)
 				return true;
 
+			if (instruction != null
+				&& instruction == IRInstruction.AddressOf
+				&& operand1.IsStaticField
+				&& operand2.IsStaticField
+				&& operand1.Field == operand2.Field)
+				return true;
+
+			if (instruction != null
+				&& instruction == IRInstruction.AddressOf
+				&& operand1.IsStackLocal
+				&& operand2.IsStackLocal
+				&& operand1.Index == operand2.Index)
+				return true;
+
 			return false;
 		}
 
@@ -519,7 +539,7 @@ namespace Mosa.Compiler.Framework.Stages
 			foreach (var expression in expressions)
 			{
 				if (node.Instruction == expression.Instruction
-					&& IsEqual(node.Operand1, expression.Operand1)
+					&& IsEqual(node.Operand1, expression.Operand1, node.Instruction)
 					&& (node.OperandCount == 1 || (node.OperandCount == 2 && IsEqual(node.Operand2, expression.Operand2))))
 				{
 					return expression;
@@ -539,7 +559,7 @@ namespace Mosa.Compiler.Framework.Stages
 
 		private void SetValueNumber(Operand operand, Operand valueVumber)
 		{
-			if (trace.Active) trace.Log($"Set: {operand} => {valueVumber}");
+			trace?.Log($"Set: {operand} => {valueVumber}");
 
 			MapToValueNumber[operand] = valueVumber;
 		}
@@ -590,7 +610,7 @@ namespace Mosa.Compiler.Framework.Stages
 
 			list.Add(expression);
 
-			if (trace.Active) trace.Log($"Added Expression: {expression.ValueNumber} <= {expression.Instruction} {expression.Operand1} {expression.Operand2}" ?? string.Empty);
+			trace?.Log($"Added Expression: {expression.ValueNumber} <= {expression.Instruction} {expression.Operand1} {expression.Operand2}" ?? string.Empty);
 		}
 
 		private void RemoveExpressionFromHashTable(Expression expression)
@@ -599,7 +619,7 @@ namespace Mosa.Compiler.Framework.Stages
 
 			list.Remove(expression);
 
-			if (trace.Active) trace.Log($"Removed Expression: {expression.ValueNumber} <= {expression.Instruction} {expression.Operand1} {expression.Operand2}" ?? string.Empty);
+			trace?.Log($"Removed Expression: {expression.ValueNumber} <= {expression.Instruction} {expression.Operand1} {expression.Operand2}" ?? string.Empty);
 		}
 
 		private void UpdateNodeWithValueNumbers(InstructionNode node)
@@ -617,11 +637,11 @@ namespace Mosa.Compiler.Framework.Stages
 					{
 						if (operand != valueNumber)
 						{
-							//if (trace.Active) trace.Log($"BEFORE: {node}");
-							//if (trace.Active) trace.Log($"Replaced: {operand} with {valueNumber}");
+							//trace?.Log($"BEFORE: {node}");
+							//trace?.Log($"Replaced: {operand} with {valueNumber}");
 							node.SetOperand(i, valueNumber);
 
-							if (trace.Active) trace.Log($"UPDATED: {node}");
+							trace?.Log($"UPDATED: {node}");
 						}
 					}
 					else

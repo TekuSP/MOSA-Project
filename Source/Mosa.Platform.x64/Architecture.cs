@@ -29,7 +29,7 @@ namespace Mosa.Platform.x64
 		/// <summary>
 		/// Gets the type of the elf machine.
 		/// </summary>
-		public override MachineType MachineType { get { return MachineType.Intel386; } }
+		public override MachineType ElfMachineType { get { return MachineType.Intel386; } }
 
 		/// <summary>
 		/// Defines the register set of the target architecture.
@@ -172,36 +172,37 @@ namespace Mosa.Platform.x64
 		/// <summary>
 		/// Extends the compiler pipeline with x64 specific stages.
 		/// </summary>
-		/// <param name="compilerPipeline">The pipeline to extend.</param>
-		public override void ExtendCompilerPipeline(Pipeline<BaseCompilerStage> compilerPipeline, CompilerOptions compilerOptions)
+		/// <param name="pipeline">The pipeline to extend.</param>
+		public override void ExtendCompilerPipeline(Pipeline<BaseCompilerStage> pipeline, CompilerOptions compilerOptions)
 		{
 			if (compilerOptions.MultibootSpecification == MultibootSpecification.V1)
 			{
-				compilerPipeline.InsertAfterFirst<TypeInitializerSchedulerStage>(
+				pipeline.InsertAfterFirst<TypeInitializerStage>(
 					new MultibootV1Stage()
 				);
 			}
 
-			compilerPipeline.Add(
+			pipeline.Add(
 				new Intel.CompilerStages.StartUpStage()
-			);
-
-			compilerPipeline.Add(
-				new InterruptVectorStage()
 			);
 		}
 
 		/// <summary>
 		/// Extends the method compiler pipeline with x64 specific stages.</summary>
-		/// <param name="compilerPipeline">The method compiler pipeline to extend.</param>
+		/// <param name="pipeline">The method compiler pipeline to extend.</param>
 		/// <param name="compilerOptions"></param>
-		public override void ExtendMethodCompilerPipeline(Pipeline<BaseMethodCompilerStage> compilerPipeline, CompilerOptions compilerOptions)
+		public override void ExtendMethodCompilerPipeline(Pipeline<BaseMethodCompilerStage> pipeline, CompilerOptions compilerOptions)
 		{
-			compilerPipeline.InsertAfterLast<PlatformIntrinsicStage>(
+			pipeline.InsertBefore<LowerIRStage>(
+				new IRSubstitutionStage()
+			);
+
+			pipeline.InsertAfterLast<PlatformIntrinsicStage>(
 				new BaseMethodCompilerStage[]
 				{
 					new LongOperandStage(),
 					new IRTransformationStage(),
+					compilerOptions.EnablePlatformOptimizations ? new OptimizationStage() : null,
 					new TweakStage(),
 					new FixedRegisterAssignmentStage(),
 					new SimpleDeadCodeRemovalStage(),
@@ -209,25 +210,20 @@ namespace Mosa.Platform.x64
 					new FloatingPointStage(),
 				});
 
-			compilerPipeline.InsertAfterLast<StackLayoutStage>(
+			pipeline.InsertAfterLast<StackLayoutStage>(
 				new BuildStackStage()
 			);
 
-			compilerPipeline.InsertBefore<CodeGenerationStage>(
+			pipeline.InsertBefore<CodeGenerationStage>(
 				new BaseMethodCompilerStage[]
 				{
 					new FinalTweakStage(),
-
-					//compilerOptions.EnablePlatformOptimizations ? new PostOptimizationStage() : null,
+					compilerOptions.EnablePlatformOptimizations ? new PostOptimizationStage() : null,
 				});
 
-			compilerPipeline.InsertBefore<CodeGenerationStage>(
+			pipeline.InsertBefore<CodeGenerationStage>(
 				new JumpOptimizationStage()
 			);
-
-			//compilerPipeline.InsertBefore<GreedyRegisterAllocatorStage>(
-			//	new StopStage()
-			//);
 		}
 
 		/// <summary>

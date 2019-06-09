@@ -11,6 +11,8 @@ namespace Mosa.Compiler.Framework.Trace
 	/// </summary>
 	public static class InstructionLogger
 	{
+		private const int TraceLevel = 6;
+
 		public static void Run(MethodCompiler methodCompiler, BaseMethodCompilerStage stage)
 		{
 			Run(
@@ -23,38 +25,33 @@ namespace Mosa.Compiler.Framework.Trace
 
 		public static void Run(CompilerTrace compilerTrace, string stage, MosaMethod method, BasicBlocks basicBlocks)
 		{
-			if (compilerTrace == null)
+			if (!compilerTrace.IsTraceable(TraceLevel))
 				return;
 
-			if (!compilerTrace.TraceFilter.IsMatch(method, stage))
-				return;
+			var traceLog = new TraceLog(TraceType.MethodInstructions, method, stage);
 
-			var traceLog = new TraceLog(TraceType.InstructionList, method, stage, true);
-
-			traceLog.Log($"{method.FullName} after stage {stage}:");
-			traceLog.Log();
+			traceLog?.Log($"{method.FullName} after stage {stage}:");
+			traceLog?.Log();
 
 			if (basicBlocks.Count > 0)
 			{
 				foreach (var block in basicBlocks)
 				{
-					traceLog.Log($"Block #{block.Sequence} - Label L_{block.Label:X4}" + (block.IsHeadBlock ? " [Header]" : string.Empty));
-
-					traceLog.Log($"  Prev: {ListBlocks(block.PreviousBlocks)}");
+					traceLog?.Log($"Block #{block.Sequence} - Label L_{block.Label:X4}" + (block.IsHeadBlock ? " [Header]" : string.Empty));
+					traceLog?.Log($"  Prev: {ListBlocks(block.PreviousBlocks)}");
 
 					LogInstructions(traceLog, block.First);
 
-					traceLog.Log($"  Next: {ListBlocks(block.NextBlocks)}");
-
-					traceLog.Log();
+					traceLog?.Log($"  Next: {ListBlocks(block.NextBlocks)}");
+					traceLog?.Log();
 				}
 			}
 			else
 			{
-				traceLog.Log("No instructions.");
+				traceLog?.Log("No instructions.");
 			}
 
-			compilerTrace.NewTraceLog(traceLog);
+			compilerTrace.PostTraceLog(traceLog);
 		}
 
 		private static string ListBlocks(IList<BasicBlock> blocks)

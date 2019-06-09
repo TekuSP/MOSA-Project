@@ -28,6 +28,8 @@
 		/// </summary>
 		private void InitializeComponent()
 		{
+            this.components = new System.ComponentModel.Container();
+            System.Windows.Forms.Label label4;
             System.Windows.Forms.Label label3;
             System.Windows.Forms.Label stageLabel;
             System.Windows.Forms.Label label1;
@@ -58,28 +60,26 @@
             this.padInstructions = new System.Windows.Forms.ToolStripMenuItem();
             this.showSizes = new System.Windows.Forms.ToolStripMenuItem();
             this.advanceToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.cbEnableMethodScanner = new System.Windows.Forms.ToolStripMenuItem();
             this.dumpAllMethodStagesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.openFileDialog = new System.Windows.Forms.OpenFileDialog();
             this.treeView = new System.Windows.Forms.TreeView();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
-            this.tabControl1 = new System.Windows.Forms.TabControl();
-            this.tbStages = new System.Windows.Forms.TabPage();
+            this.label2 = new System.Windows.Forms.Label();
+            this.tbFilter = new System.Windows.Forms.TextBox();
+            this.tabControl = new System.Windows.Forms.TabControl();
+            this.tabStages = new System.Windows.Forms.TabPage();
             this.cbLabels = new System.Windows.Forms.ComboBox();
             this.cbStages = new System.Windows.Forms.ComboBox();
-            this.tbResult = new System.Windows.Forms.RichTextBox();
-            this.tbDebug = new System.Windows.Forms.TabPage();
+            this.tbInstructions = new System.Windows.Forms.RichTextBox();
+            this.tabStageDebug = new System.Windows.Forms.TabPage();
             this.cbDebugStages = new System.Windows.Forms.ComboBox();
-            this.rbDebugResult = new System.Windows.Forms.RichTextBox();
-            this.tbMethodCounters = new System.Windows.Forms.TabPage();
-            this.rbMethodCounters = new System.Windows.Forms.RichTextBox();
-            this.tbGlobalCounters = new System.Windows.Forms.TabPage();
-            this.rbGlobalCounters = new System.Windows.Forms.RichTextBox();
-            this.tbLogs = new System.Windows.Forms.TabPage();
-            this.rbLog = new System.Windows.Forms.RichTextBox();
-            this.tbErrors = new System.Windows.Forms.TabPage();
-            this.rbErrors = new System.Windows.Forms.RichTextBox();
-            this.tbExceptions = new System.Windows.Forms.TabPage();
-            this.rbException = new System.Windows.Forms.RichTextBox();
+            this.tbDebugResult = new System.Windows.Forms.RichTextBox();
+            this.tabMethodCounters = new System.Windows.Forms.TabPage();
+            this.tbMethodCounters = new System.Windows.Forms.RichTextBox();
+            this.tabLogs = new System.Windows.Forms.TabPage();
+            this.cbSectionLogs = new System.Windows.Forms.ComboBox();
+            this.tbLogs = new System.Windows.Forms.RichTextBox();
             this.toolStrip1 = new System.Windows.Forms.ToolStrip();
             this.toolStripButton1 = new System.Windows.Forms.ToolStripButton();
             this.toolStripButton2 = new System.Windows.Forms.ToolStripButton();
@@ -88,6 +88,8 @@
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.cbPlatform = new System.Windows.Forms.ComboBox();
             this.folderBrowserDialog1 = new System.Windows.Forms.FolderBrowserDialog();
+            this.timer1 = new System.Windows.Forms.Timer(this.components);
+            label4 = new System.Windows.Forms.Label();
             label3 = new System.Windows.Forms.Label();
             stageLabel = new System.Windows.Forms.Label();
             label1 = new System.Windows.Forms.Label();
@@ -97,16 +99,23 @@
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
-            this.tabControl1.SuspendLayout();
-            this.tbStages.SuspendLayout();
-            this.tbDebug.SuspendLayout();
-            this.tbMethodCounters.SuspendLayout();
-            this.tbGlobalCounters.SuspendLayout();
-            this.tbLogs.SuspendLayout();
-            this.tbErrors.SuspendLayout();
-            this.tbExceptions.SuspendLayout();
+            this.tabControl.SuspendLayout();
+            this.tabStages.SuspendLayout();
+            this.tabStageDebug.SuspendLayout();
+            this.tabMethodCounters.SuspendLayout();
+            this.tabLogs.SuspendLayout();
             this.toolStrip1.SuspendLayout();
             this.SuspendLayout();
+            // 
+            // label4
+            // 
+            label4.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            label4.Location = new System.Drawing.Point(4, 8);
+            label4.Margin = new System.Windows.Forms.Padding(4);
+            label4.Name = "label4";
+            label4.Size = new System.Drawing.Size(60, 20);
+            label4.TabIndex = 45;
+            label4.Text = "Section:";
             // 
             // label3
             // 
@@ -144,9 +153,9 @@
             this.toolStripStatusLabel1,
             this.toolStripProgressBar1,
             this.toolStripStatusLabel});
-            this.statusStrip1.Location = new System.Drawing.Point(0, 479);
+            this.statusStrip1.Location = new System.Drawing.Point(0, 456);
             this.statusStrip1.Name = "statusStrip1";
-            this.statusStrip1.Size = new System.Drawing.Size(891, 22);
+            this.statusStrip1.Size = new System.Drawing.Size(864, 22);
             this.statusStrip1.TabIndex = 0;
             this.statusStrip1.Text = "statusStrip1";
             // 
@@ -175,7 +184,7 @@
             this.advanceToolStripMenuItem});
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
-            this.menuStrip1.Size = new System.Drawing.Size(891, 24);
+            this.menuStrip1.Size = new System.Drawing.Size(864, 24);
             this.menuStrip1.TabIndex = 3;
             this.menuStrip1.Text = "menuStrip1";
             // 
@@ -358,11 +367,20 @@
             // 
             // advanceToolStripMenuItem
             // 
+            this.advanceToolStripMenuItem.CheckOnClick = true;
             this.advanceToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.cbEnableMethodScanner,
             this.dumpAllMethodStagesToolStripMenuItem});
             this.advanceToolStripMenuItem.Name = "advanceToolStripMenuItem";
             this.advanceToolStripMenuItem.Size = new System.Drawing.Size(65, 20);
             this.advanceToolStripMenuItem.Text = "Advance";
+            // 
+            // cbEnableMethodScanner
+            // 
+            this.cbEnableMethodScanner.CheckOnClick = true;
+            this.cbEnableMethodScanner.Name = "cbEnableMethodScanner";
+            this.cbEnableMethodScanner.Size = new System.Drawing.Size(206, 22);
+            this.cbEnableMethodScanner.Text = "Enable Method Scanner";
             // 
             // dumpAllMethodStagesToolStripMenuItem
             // 
@@ -381,11 +399,13 @@
             this.treeView.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.treeView.Location = new System.Drawing.Point(0, 0);
+            this.treeView.Location = new System.Drawing.Point(0, 25);
             this.treeView.Name = "treeView";
-            this.treeView.Size = new System.Drawing.Size(239, 427);
+            this.treeView.Size = new System.Drawing.Size(232, 372);
             this.treeView.TabIndex = 3;
+            this.treeView.BeforeSelect += new System.Windows.Forms.TreeViewCancelEventHandler(this.treeView_BeforeSelect);
             this.treeView.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.TreeView_AfterSelect);
+            this.treeView.NodeMouseDoubleClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.treeView_NodeMouseDoubleClick);
             // 
             // splitContainer1
             // 
@@ -398,54 +418,73 @@
             // 
             // splitContainer1.Panel1
             // 
+            this.splitContainer1.Panel1.Controls.Add(this.label2);
+            this.splitContainer1.Panel1.Controls.Add(this.tbFilter);
             this.splitContainer1.Panel1.Controls.Add(this.treeView);
             this.splitContainer1.Panel1.RightToLeft = System.Windows.Forms.RightToLeft.No;
             // 
             // splitContainer1.Panel2
             // 
-            this.splitContainer1.Panel2.Controls.Add(this.tabControl1);
+            this.splitContainer1.Panel2.Controls.Add(this.tabControl);
             this.splitContainer1.Panel2.RightToLeft = System.Windows.Forms.RightToLeft.No;
             this.splitContainer1.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.splitContainer1.Size = new System.Drawing.Size(887, 424);
-            this.splitContainer1.SplitterDistance = 236;
+            this.splitContainer1.Size = new System.Drawing.Size(860, 401);
+            this.splitContainer1.SplitterDistance = 228;
             this.splitContainer1.SplitterWidth = 6;
             this.splitContainer1.TabIndex = 26;
             // 
-            // tabControl1
+            // label2
             // 
-            this.tabControl1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            this.label2.AutoSize = true;
+            this.label2.Location = new System.Drawing.Point(1, 8);
+            this.label2.Name = "label2";
+            this.label2.Size = new System.Drawing.Size(32, 13);
+            this.label2.TabIndex = 5;
+            this.label2.Text = "Filter:";
+            // 
+            // tbFilter
+            // 
+            this.tbFilter.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.tbFilter.Location = new System.Drawing.Point(33, 4);
+            this.tbFilter.Name = "tbFilter";
+            this.tbFilter.Size = new System.Drawing.Size(192, 20);
+            this.tbFilter.TabIndex = 4;
+            this.tbFilter.TextChanged += new System.EventHandler(this.tbFilter_TextChanged);
+            // 
+            // tabControl
+            // 
+            this.tabControl.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.tabControl1.Controls.Add(this.tbStages);
-            this.tabControl1.Controls.Add(this.tbDebug);
-            this.tabControl1.Controls.Add(this.tbMethodCounters);
-            this.tabControl1.Controls.Add(this.tbGlobalCounters);
-            this.tabControl1.Controls.Add(this.tbLogs);
-            this.tabControl1.Controls.Add(this.tbErrors);
-            this.tabControl1.Controls.Add(this.tbExceptions);
-            this.tabControl1.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.tabControl1.Location = new System.Drawing.Point(0, 0);
-            this.tabControl1.Margin = new System.Windows.Forms.Padding(0);
-            this.tabControl1.Name = "tabControl1";
-            this.tabControl1.Padding = new System.Drawing.Point(0, 0);
-            this.tabControl1.SelectedIndex = 0;
-            this.tabControl1.Size = new System.Drawing.Size(639, 424);
-            this.tabControl1.TabIndex = 38;
+            this.tabControl.Controls.Add(this.tabStages);
+            this.tabControl.Controls.Add(this.tabStageDebug);
+            this.tabControl.Controls.Add(this.tabMethodCounters);
+            this.tabControl.Controls.Add(this.tabLogs);
+            this.tabControl.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.tabControl.Location = new System.Drawing.Point(0, 0);
+            this.tabControl.Margin = new System.Windows.Forms.Padding(0);
+            this.tabControl.Name = "tabControl";
+            this.tabControl.Padding = new System.Drawing.Point(0, 0);
+            this.tabControl.SelectedIndex = 0;
+            this.tabControl.Size = new System.Drawing.Size(618, 401);
+            this.tabControl.TabIndex = 38;
+            this.tabControl.SelectedIndexChanged += new System.EventHandler(this.tabControl_SelectedIndexChanged);
             // 
-            // tbStages
+            // tabStages
             // 
-            this.tbStages.BackColor = System.Drawing.Color.Gainsboro;
-            this.tbStages.Controls.Add(label1);
-            this.tbStages.Controls.Add(this.cbLabels);
-            this.tbStages.Controls.Add(this.cbStages);
-            this.tbStages.Controls.Add(stageLabel);
-            this.tbStages.Controls.Add(this.tbResult);
-            this.tbStages.Location = new System.Drawing.Point(4, 25);
-            this.tbStages.Margin = new System.Windows.Forms.Padding(0);
-            this.tbStages.Name = "tbStages";
-            this.tbStages.Size = new System.Drawing.Size(631, 395);
-            this.tbStages.TabIndex = 0;
-            this.tbStages.Text = "Instructions";
+            this.tabStages.BackColor = System.Drawing.Color.Gainsboro;
+            this.tabStages.Controls.Add(label1);
+            this.tabStages.Controls.Add(this.cbLabels);
+            this.tabStages.Controls.Add(this.cbStages);
+            this.tabStages.Controls.Add(stageLabel);
+            this.tabStages.Controls.Add(this.tbInstructions);
+            this.tabStages.Location = new System.Drawing.Point(4, 25);
+            this.tabStages.Margin = new System.Windows.Forms.Padding(0);
+            this.tabStages.Name = "tabStages";
+            this.tabStages.Size = new System.Drawing.Size(610, 372);
+            this.tabStages.TabIndex = 0;
+            this.tabStages.Text = "Instructions";
             // 
             // cbLabels
             // 
@@ -474,31 +513,31 @@
             this.cbStages.TabIndex = 38;
             this.cbStages.SelectedIndexChanged += new System.EventHandler(this.CbStages_SelectedIndexChanged);
             // 
-            // tbResult
+            // tbInstructions
             // 
-            this.tbResult.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            this.tbInstructions.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.tbResult.Font = new System.Drawing.Font("Lucida Console", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.tbResult.Location = new System.Drawing.Point(0, 32);
-            this.tbResult.Name = "tbResult";
-            this.tbResult.Size = new System.Drawing.Size(633, 360);
-            this.tbResult.TabIndex = 31;
-            this.tbResult.Text = "";
-            this.tbResult.WordWrap = false;
+            this.tbInstructions.Font = new System.Drawing.Font("Lucida Console", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.tbInstructions.Location = new System.Drawing.Point(0, 32);
+            this.tbInstructions.Name = "tbInstructions";
+            this.tbInstructions.Size = new System.Drawing.Size(412, 150);
+            this.tbInstructions.TabIndex = 31;
+            this.tbInstructions.Text = "";
+            this.tbInstructions.WordWrap = false;
             // 
-            // tbDebug
+            // tabStageDebug
             // 
-            this.tbDebug.BackColor = System.Drawing.Color.Gainsboro;
-            this.tbDebug.Controls.Add(this.cbDebugStages);
-            this.tbDebug.Controls.Add(label3);
-            this.tbDebug.Controls.Add(this.rbDebugResult);
-            this.tbDebug.Location = new System.Drawing.Point(4, 25);
-            this.tbDebug.Margin = new System.Windows.Forms.Padding(0);
-            this.tbDebug.Name = "tbDebug";
-            this.tbDebug.Size = new System.Drawing.Size(631, 395);
-            this.tbDebug.TabIndex = 1;
-            this.tbDebug.Text = "Debug";
+            this.tabStageDebug.BackColor = System.Drawing.Color.Gainsboro;
+            this.tabStageDebug.Controls.Add(this.cbDebugStages);
+            this.tabStageDebug.Controls.Add(label3);
+            this.tabStageDebug.Controls.Add(this.tbDebugResult);
+            this.tabStageDebug.Location = new System.Drawing.Point(4, 25);
+            this.tabStageDebug.Margin = new System.Windows.Forms.Padding(0);
+            this.tabStageDebug.Name = "tabStageDebug";
+            this.tabStageDebug.Size = new System.Drawing.Size(610, 372);
+            this.tabStageDebug.TabIndex = 1;
+            this.tabStageDebug.Text = "Debug";
             // 
             // cbDebugStages
             // 
@@ -513,137 +552,81 @@
             this.cbDebugStages.TabIndex = 40;
             this.cbDebugStages.SelectedIndexChanged += new System.EventHandler(this.CbDebugStages_SelectedIndexChanged);
             // 
-            // rbDebugResult
+            // tbDebugResult
             // 
-            this.rbDebugResult.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            this.tbDebugResult.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.rbDebugResult.Font = new System.Drawing.Font("Lucida Console", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.rbDebugResult.Location = new System.Drawing.Point(0, 32);
-            this.rbDebugResult.Name = "rbDebugResult";
-            this.rbDebugResult.Size = new System.Drawing.Size(633, 360);
-            this.rbDebugResult.TabIndex = 32;
-            this.rbDebugResult.Text = "";
-            this.rbDebugResult.WordWrap = false;
+            this.tbDebugResult.Font = new System.Drawing.Font("Lucida Console", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.tbDebugResult.Location = new System.Drawing.Point(0, 32);
+            this.tbDebugResult.Name = "tbDebugResult";
+            this.tbDebugResult.Size = new System.Drawing.Size(412, 150);
+            this.tbDebugResult.TabIndex = 32;
+            this.tbDebugResult.Text = "";
+            this.tbDebugResult.WordWrap = false;
+            // 
+            // tabMethodCounters
+            // 
+            this.tabMethodCounters.BackColor = System.Drawing.Color.Gainsboro;
+            this.tabMethodCounters.Controls.Add(this.tbMethodCounters);
+            this.tabMethodCounters.Location = new System.Drawing.Point(4, 25);
+            this.tabMethodCounters.Margin = new System.Windows.Forms.Padding(0);
+            this.tabMethodCounters.Name = "tabMethodCounters";
+            this.tabMethodCounters.Size = new System.Drawing.Size(610, 372);
+            this.tabMethodCounters.TabIndex = 6;
+            this.tabMethodCounters.Text = "Counters";
             // 
             // tbMethodCounters
             // 
-            this.tbMethodCounters.Controls.Add(this.rbMethodCounters);
-            this.tbMethodCounters.Location = new System.Drawing.Point(4, 25);
+            this.tbMethodCounters.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.tbMethodCounters.Font = new System.Drawing.Font("Lucida Console", 8F);
+            this.tbMethodCounters.Location = new System.Drawing.Point(0, 0);
             this.tbMethodCounters.Name = "tbMethodCounters";
-            this.tbMethodCounters.Size = new System.Drawing.Size(631, 395);
-            this.tbMethodCounters.TabIndex = 6;
-            this.tbMethodCounters.Text = "Counters";
-            this.tbMethodCounters.UseVisualStyleBackColor = true;
+            this.tbMethodCounters.Size = new System.Drawing.Size(412, 150);
+            this.tbMethodCounters.TabIndex = 3;
+            this.tbMethodCounters.Text = "";
+            this.tbMethodCounters.WordWrap = false;
             // 
-            // rbMethodCounters
+            // tabLogs
             // 
-            this.rbMethodCounters.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.rbMethodCounters.Font = new System.Drawing.Font("Lucida Console", 8F);
-            this.rbMethodCounters.Location = new System.Drawing.Point(1, 1);
-            this.rbMethodCounters.Name = "rbMethodCounters";
-            this.rbMethodCounters.Size = new System.Drawing.Size(633, 391);
-            this.rbMethodCounters.TabIndex = 2;
-            this.rbMethodCounters.Text = "";
-            this.rbMethodCounters.WordWrap = false;
+            this.tabLogs.BackColor = System.Drawing.Color.Gainsboro;
+            this.tabLogs.Controls.Add(this.cbSectionLogs);
+            this.tabLogs.Controls.Add(label4);
+            this.tabLogs.Controls.Add(this.tbLogs);
+            this.tabLogs.Location = new System.Drawing.Point(4, 25);
+            this.tabLogs.Margin = new System.Windows.Forms.Padding(0);
+            this.tabLogs.Name = "tabLogs";
+            this.tabLogs.Size = new System.Drawing.Size(610, 372);
+            this.tabLogs.TabIndex = 7;
+            this.tabLogs.Text = "Logs";
             // 
-            // tbGlobalCounters
+            // cbSectionLogs
             // 
-            this.tbGlobalCounters.BackColor = System.Drawing.Color.Gainsboro;
-            this.tbGlobalCounters.Controls.Add(this.rbGlobalCounters);
-            this.tbGlobalCounters.Location = new System.Drawing.Point(4, 25);
-            this.tbGlobalCounters.Name = "tbGlobalCounters";
-            this.tbGlobalCounters.Padding = new System.Windows.Forms.Padding(3);
-            this.tbGlobalCounters.Size = new System.Drawing.Size(631, 395);
-            this.tbGlobalCounters.TabIndex = 4;
-            this.tbGlobalCounters.Text = "Global Counters";
-            // 
-            // rbGlobalCounters
-            // 
-            this.rbGlobalCounters.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.rbGlobalCounters.Font = new System.Drawing.Font("Lucida Console", 8F);
-            this.rbGlobalCounters.Location = new System.Drawing.Point(0, 0);
-            this.rbGlobalCounters.Name = "rbGlobalCounters";
-            this.rbGlobalCounters.Size = new System.Drawing.Size(633, 391);
-            this.rbGlobalCounters.TabIndex = 1;
-            this.rbGlobalCounters.Text = "";
-            this.rbGlobalCounters.WordWrap = false;
+            this.cbSectionLogs.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cbSectionLogs.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.cbSectionLogs.FormattingEnabled = true;
+            this.cbSectionLogs.Location = new System.Drawing.Point(66, 7);
+            this.cbSectionLogs.Margin = new System.Windows.Forms.Padding(4);
+            this.cbSectionLogs.MaxDropDownItems = 20;
+            this.cbSectionLogs.Name = "cbSectionLogs";
+            this.cbSectionLogs.Size = new System.Drawing.Size(245, 21);
+            this.cbSectionLogs.TabIndex = 44;
+            this.cbSectionLogs.SelectedIndexChanged += new System.EventHandler(this.cbSections_SelectedIndexChanged);
             // 
             // tbLogs
             // 
-            this.tbLogs.BackColor = System.Drawing.Color.Gainsboro;
-            this.tbLogs.Controls.Add(this.rbLog);
-            this.tbLogs.Location = new System.Drawing.Point(4, 25);
+            this.tbLogs.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.tbLogs.Font = new System.Drawing.Font("Lucida Console", 8F);
+            this.tbLogs.Location = new System.Drawing.Point(0, 32);
             this.tbLogs.Name = "tbLogs";
-            this.tbLogs.Padding = new System.Windows.Forms.Padding(3);
-            this.tbLogs.Size = new System.Drawing.Size(631, 395);
+            this.tbLogs.Size = new System.Drawing.Size(412, 150);
             this.tbLogs.TabIndex = 3;
-            this.tbLogs.Text = "Log";
-            // 
-            // rbLog
-            // 
-            this.rbLog.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.rbLog.Font = new System.Drawing.Font("Lucida Console", 8F);
-            this.rbLog.Location = new System.Drawing.Point(0, 0);
-            this.rbLog.Name = "rbLog";
-            this.rbLog.Size = new System.Drawing.Size(633, 391);
-            this.rbLog.TabIndex = 1;
-            this.rbLog.Text = "";
-            this.rbLog.WordWrap = false;
-            // 
-            // tbErrors
-            // 
-            this.tbErrors.BackColor = System.Drawing.Color.Gainsboro;
-            this.tbErrors.Controls.Add(this.rbErrors);
-            this.tbErrors.Location = new System.Drawing.Point(4, 25);
-            this.tbErrors.Name = "tbErrors";
-            this.tbErrors.Padding = new System.Windows.Forms.Padding(3);
-            this.tbErrors.Size = new System.Drawing.Size(631, 395);
-            this.tbErrors.TabIndex = 2;
-            this.tbErrors.Text = "Errors";
-            // 
-            // rbErrors
-            // 
-            this.rbErrors.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.rbErrors.Font = new System.Drawing.Font("Lucida Console", 8F);
-            this.rbErrors.Location = new System.Drawing.Point(0, 0);
-            this.rbErrors.Name = "rbErrors";
-            this.rbErrors.Size = new System.Drawing.Size(633, 391);
-            this.rbErrors.TabIndex = 0;
-            this.rbErrors.Text = "";
-            this.rbErrors.WordWrap = false;
-            // 
-            // tbExceptions
-            // 
-            this.tbExceptions.Controls.Add(this.rbException);
-            this.tbExceptions.Location = new System.Drawing.Point(4, 25);
-            this.tbExceptions.Name = "tbExceptions";
-            this.tbExceptions.Padding = new System.Windows.Forms.Padding(3);
-            this.tbExceptions.Size = new System.Drawing.Size(631, 395);
-            this.tbExceptions.TabIndex = 5;
-            this.tbExceptions.Text = "Exceptions";
-            this.tbExceptions.UseVisualStyleBackColor = true;
-            // 
-            // rbException
-            // 
-            this.rbException.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.rbException.Font = new System.Drawing.Font("Lucida Console", 8F);
-            this.rbException.Location = new System.Drawing.Point(0, 0);
-            this.rbException.Name = "rbException";
-            this.rbException.Size = new System.Drawing.Size(633, 391);
-            this.rbException.TabIndex = 2;
-            this.rbException.Text = "";
-            this.rbException.WordWrap = false;
+            this.tbLogs.Text = "";
+            this.tbLogs.WordWrap = false;
             // 
             // toolStrip1
             // 
@@ -655,7 +638,7 @@
             this.toolStripSeparator2});
             this.toolStrip1.Location = new System.Drawing.Point(0, 24);
             this.toolStrip1.Name = "toolStrip1";
-            this.toolStrip1.Size = new System.Drawing.Size(891, 25);
+            this.toolStrip1.Size = new System.Drawing.Size(864, 25);
             this.toolStrip1.TabIndex = 27;
             this.toolStrip1.Text = "toolStrip1";
             // 
@@ -714,11 +697,16 @@
             // 
             this.folderBrowserDialog1.RootFolder = System.Environment.SpecialFolder.MyComputer;
             // 
+            // timer1
+            // 
+            this.timer1.Enabled = true;
+            this.timer1.Tick += new System.EventHandler(this.timer1_Tick);
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(891, 501);
+            this.ClientSize = new System.Drawing.Size(864, 478);
             this.Controls.Add(this.cbPlatform);
             this.Controls.Add(this.toolStrip1);
             this.Controls.Add(this.statusStrip1);
@@ -734,17 +722,15 @@
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
             this.splitContainer1.Panel1.ResumeLayout(false);
+            this.splitContainer1.Panel1.PerformLayout();
             this.splitContainer1.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
             this.splitContainer1.ResumeLayout(false);
-            this.tabControl1.ResumeLayout(false);
-            this.tbStages.ResumeLayout(false);
-            this.tbDebug.ResumeLayout(false);
-            this.tbMethodCounters.ResumeLayout(false);
-            this.tbGlobalCounters.ResumeLayout(false);
-            this.tbLogs.ResumeLayout(false);
-            this.tbErrors.ResumeLayout(false);
-            this.tbExceptions.ResumeLayout(false);
+            this.tabControl.ResumeLayout(false);
+            this.tabStages.ResumeLayout(false);
+            this.tabStageDebug.ResumeLayout(false);
+            this.tabMethodCounters.ResumeLayout(false);
+            this.tabLogs.ResumeLayout(false);
             this.toolStrip1.ResumeLayout(false);
             this.toolStrip1.PerformLayout();
             this.ResumeLayout(false);
@@ -791,24 +777,23 @@
 		private System.Windows.Forms.ToolStripMenuItem showOperandTypes;
 		private System.Windows.Forms.ToolStripMenuItem showSizes;
 		private System.Windows.Forms.ToolStripMenuItem padInstructions;
-		private System.Windows.Forms.TabControl tabControl1;
-		private System.Windows.Forms.TabPage tbStages;
+		private System.Windows.Forms.ToolStripMenuItem cbEnableValueNumbering;
+		private System.Windows.Forms.ToolStripMenuItem cbEnableMethodScanner;
+		private System.Windows.Forms.TextBox tbFilter;
+		private System.Windows.Forms.Label label2;
+		private System.Windows.Forms.TabControl tabControl;
+		private System.Windows.Forms.TabPage tabStages;
 		private System.Windows.Forms.ComboBox cbLabels;
 		private System.Windows.Forms.ComboBox cbStages;
-		private System.Windows.Forms.RichTextBox tbResult;
-		private System.Windows.Forms.TabPage tbDebug;
+		private System.Windows.Forms.RichTextBox tbInstructions;
+		private System.Windows.Forms.TabPage tabStageDebug;
 		private System.Windows.Forms.ComboBox cbDebugStages;
-		private System.Windows.Forms.RichTextBox rbDebugResult;
-		private System.Windows.Forms.TabPage tbMethodCounters;
-		private System.Windows.Forms.RichTextBox rbMethodCounters;
-		private System.Windows.Forms.TabPage tbGlobalCounters;
-		private System.Windows.Forms.RichTextBox rbGlobalCounters;
-		private System.Windows.Forms.TabPage tbLogs;
-		private System.Windows.Forms.RichTextBox rbLog;
-		private System.Windows.Forms.TabPage tbErrors;
-		private System.Windows.Forms.RichTextBox rbErrors;
-		private System.Windows.Forms.TabPage tbExceptions;
-		private System.Windows.Forms.RichTextBox rbException;
-		private System.Windows.Forms.ToolStripMenuItem cbEnableValueNumbering;
+		private System.Windows.Forms.RichTextBox tbDebugResult;
+		private System.Windows.Forms.TabPage tabMethodCounters;
+		private System.Windows.Forms.RichTextBox tbMethodCounters;
+		private System.Windows.Forms.TabPage tabLogs;
+		private System.Windows.Forms.ComboBox cbSectionLogs;
+		private System.Windows.Forms.RichTextBox tbLogs;
+		private System.Windows.Forms.Timer timer1;
 	}
 }

@@ -26,7 +26,7 @@ namespace Mosa.Compiler.Framework.Trace.BuiltIn
 		{
 			switch (compilerStage)
 			{
-				case CompilerEvent.CompilingMethod:
+				case CompilerEvent.MethodCompileStart:
 					{
 						if (Quiet)
 						{
@@ -37,27 +37,7 @@ namespace Mosa.Compiler.Framework.Trace.BuiltIn
 						break;
 					}
 
-				case CompilerEvent.CompilingType:
-					{
-						if (Quiet) break;
-						Console.ForegroundColor = ConsoleColor.Yellow;
-						Console.Write("[Compiling]  ");
-						Console.ForegroundColor = ConsoleColor.White;
-						Console.WriteLine(info);
-						break;
-					}
-
-				case CompilerEvent.SchedulingType:
-					{
-						if (Quiet) break;
-						Console.ForegroundColor = ConsoleColor.Blue;
-						Console.Write("[Scheduling]  ");
-						Console.ForegroundColor = ConsoleColor.White;
-						Console.WriteLine(info);
-						break;
-					}
-
-				case CompilerEvent.SchedulingMethod:
+				case CompilerEvent.MethodScheduled:
 					{
 						if (Quiet) break;
 						Console.ForegroundColor = ConsoleColor.Blue;
@@ -116,20 +96,20 @@ namespace Mosa.Compiler.Framework.Trace.BuiltIn
 			}
 		}
 
-		void ITraceListener.OnNewCompilerTraceEvent(CompilerEvent compilerEvent, string message, int threadID)
+		void ITraceListener.OnCompilerEvent(CompilerEvent compilerEvent, string message, int threadID)
 		{
 			TraceEvent(compilerEvent, message);
 		}
 
-		void ITraceListener.OnUpdatedCompilerProgress(int totalMethods, int completedMethods)
+		void ITraceListener.OnProgress(int totalMethods, int completedMethods)
 		{
 		}
 
-		void ITraceListener.OnNewTraceLog(TraceLog traceLog)
+		void ITraceListener.OnTraceLog(TraceLog traceLog)
 		{
 		}
 
-		void ITraceListener.OnMethodcompiled(MosaMethod method)
+		void ITraceListener.OnMethodCompiled(MosaMethod method)
 		{
 		}
 	}

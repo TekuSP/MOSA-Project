@@ -17,7 +17,7 @@ namespace Mosa.DeviceDriver.PCI.VideoCard
 	/// Generic VGA Device Driver
 	/// </summary>
 	//[PCIDeviceDriver(ClassCode = 0X03, SubClassCode = 0x00, ProgIF = 0x00, Platforms = PlatformArchitecture.X86AndX64)]
-	public class GenericVGA : DeviceSystem.DeviceDriver, IPixelPaletteGraphicsDevice
+	public class GenericVGA : BaseDeviceDriver, IPixelPaletteGraphicsDevice
 	{
 		#region Definitions
 
@@ -46,110 +46,114 @@ namespace Mosa.DeviceDriver.PCI.VideoCard
 
 		#endregion Definitions
 
-		/// <summary>
-		///
-		/// </summary>
-		protected IOPortWrite miscellaneousOutputWrite;
+		#region Ports
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite crtControllerIndex;
+		protected BaseIOPortWrite miscellaneousOutputWrite;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite crtControllerData;
+		protected BaseIOPortReadWrite crtControllerIndex;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite crtControllerIndexColor;
+		protected BaseIOPortReadWrite crtControllerData;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite crtControllerDataColor;
+		protected BaseIOPortReadWrite crtControllerIndexColor;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite dacPaletteMask;
+		protected BaseIOPortReadWrite crtControllerDataColor;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite dacIndexWrite;
+		protected BaseIOPortReadWrite dacPaletteMask;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite dacIndexRead;
+		protected BaseIOPortReadWrite dacIndexWrite;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite dacData;
+		protected BaseIOPortReadWrite dacIndexRead;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortRead inputStatus1;
+		protected BaseIOPortReadWrite dacData;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortRead miscellaneousOutputRead;
+		protected BaseIOPortRead inputStatus1;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite sequencerAddress;
+		protected BaseIOPortRead miscellaneousOutputRead;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite sequencerData;
+		protected BaseIOPortReadWrite sequencerAddress;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite graphicsControllerAddress;
+		protected BaseIOPortReadWrite sequencerData;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite graphicsControllerData;
+		protected BaseIOPortReadWrite graphicsControllerAddress;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected BaseMemory memory;
+		protected BaseIOPortReadWrite graphicsControllerData;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite activeControllerIndex;
+		protected BaseIOPortReadWrite activeControllerIndex;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite activeControllerData;
+		protected BaseIOPortReadWrite activeControllerData;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite inputStatus1ReadB;
+		protected BaseIOPortReadWrite inputStatus1ReadB;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite attributeAddress;
+		protected BaseIOPortReadWrite attributeAddress;
 
 		/// <summary>
 		///
 		/// </summary>
-		protected IOPortReadWrite attributeData;
+		protected BaseIOPortReadWrite attributeData;
+
+		#endregion Ports
+
+		/// <summary>
+		///
+		/// </summary>
+		protected ConstrainedPointer memory;
 
 		/// <summary>
 		///
@@ -181,9 +185,9 @@ namespace Mosa.DeviceDriver.PCI.VideoCard
 		/// </summary>
 		private WriteMethod writeMethod;
 
-		protected override void Initialize()
+		public override void Initialize()
 		{
-			Device.Name = "GenericVGA";
+			Device.Name = "GenericVGA_0x" + Device.Resources.GetIOPortRegion(0).BaseIOPort.ToString("X");
 
 			byte portBar = (byte)(Device.Resources.IOPointRegionCount - 1);
 
@@ -206,7 +210,7 @@ namespace Mosa.DeviceDriver.PCI.VideoCard
 			attributeAddress = Device.Resources.GetIOPortReadWrite(portBar, 0x10);
 			attributeData = Device.Resources.GetIOPortReadWrite(portBar, 0x11);
 
-			memory = Device.Resources.GetMemory((byte)(Device.Resources.MemoryRegionCount - 1));
+			memory = Device.Resources.GetMemory((byte)(Device.Resources.AddressRegionCount - 1));
 		}
 
 		public override void Start()
@@ -214,17 +218,19 @@ namespace Mosa.DeviceDriver.PCI.VideoCard
 			if (Device.Status != DeviceStatus.Available)
 				return;
 
-			if (!SetMode(13))
-			{
-				Device.Status = DeviceStatus.Error;
-			}
+			// TODO
+
+			//if (!SetMode(13))
+			//{
+			//	Device.Status = DeviceStatus.Error;
+			//}
 
 			Device.Status = DeviceStatus.Online;
 		}
 
 		public override bool OnInterrupt()
 		{
-			return true;
+			return false;
 		}
 
 		/// <summary>

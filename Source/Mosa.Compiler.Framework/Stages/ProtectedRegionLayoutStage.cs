@@ -45,7 +45,7 @@ namespace Mosa.Compiler.Framework.Stages
 		{
 			var trace = CreateTraceLog("Regions");
 
-			var protectedRegionTableSymbol = MethodCompiler.Linker.DefineSymbol(MethodCompiler.Method.FullName + Metadata.ProtectedRegionTable, SectionKind.ROData, NativeAlignment, 0);
+			var protectedRegionTableSymbol = Linker.DefineSymbol(Metadata.ProtectedRegionTable + Method.FullName, SectionKind.ROData, NativeAlignment, 0);
 			var writer = new EndianAwareBinaryWriter(protectedRegionTableSymbol.Stream, Architecture.Endianness);
 
 			int sectioncount = 0;
@@ -57,8 +57,7 @@ namespace Mosa.Compiler.Framework.Stages
 			{
 				var handler = (uint)MethodCompiler.GetPosition(region.Handler.HandlerStart);
 
-				if (trace.Active)
-					trace.Log("Handler: " + region.Handler.TryStart.ToString("X4") + " to " + region.Handler.TryEnd.ToString("X4") + " Handler: " + region.Handler.HandlerStart.ToString("X4") + " Offset: [" + handler.ToString("X4") + "]");
+				trace?.Log($"Handler: {region.Handler.TryStart.ToString("X4")} to {region.Handler.TryEnd.ToString("X4")} Handler: {region.Handler.HandlerStart.ToString("X4")} Offset: [{handler.ToString("X4")}]");
 
 				var sections = new List<Tuple<int, int>>();
 
@@ -71,8 +70,7 @@ namespace Mosa.Compiler.Framework.Stages
 					int start = MethodCompiler.GetPosition(block.Label);
 					int end = MethodCompiler.GetPosition(block.Label + 0x0F000000);
 
-					if (trace.Active)
-						trace.Log($"   Block: {block} [{start.ToString()}-{end.ToString()}]");
+					trace?.Log($"   Block: {block} [{start.ToString()}-{end.ToString()}]");
 
 					AddSection(sections, start, end);
 				}
@@ -84,13 +82,12 @@ namespace Mosa.Compiler.Framework.Stages
 
 					sectioncount++;
 
-					var name = MethodCompiler.Method.FullName + Metadata.ProtectedRegionTable + "$" + sectioncount.ToString();
+					var name = Metadata.ProtectedRegionTable + Method.FullName + "$" + sectioncount.ToString();
 					var protectedRegionDefinition = CreateProtectedRegionDefinition(name, (uint)start, (uint)end, handler, region.Handler.ExceptionHandlerType, region.Handler.Type);
-					MethodCompiler.Linker.Link(LinkType.AbsoluteAddress, NativePatchType, protectedRegionTableSymbol, (int)writer.Position, protectedRegionDefinition, 0);
+					Linker.Link(LinkType.AbsoluteAddress, NativePatchType, protectedRegionTableSymbol, writer.Position, protectedRegionDefinition, 0);
 					writer.WriteZeroBytes(TypeLayout.NativePointerSize);
 
-					if (trace.Active)
-						trace.Log($"     Section: [{start.ToString()}-{end.ToString()}]");
+					trace?.Log($"     Section: [{start.ToString()}-{end.ToString()}]");
 				}
 			}
 
@@ -102,7 +99,7 @@ namespace Mosa.Compiler.Framework.Stages
 		private LinkerSymbol CreateProtectedRegionDefinition(string name, uint start, uint end, uint handler, ExceptionHandlerType handlerType, MosaType exceptionType)
 		{
 			// Emit parameter table
-			var protectedRegionDefinitionSymbol = MethodCompiler.Linker.DefineSymbol(name, SectionKind.ROData, 0/*TypeLayout.NativePointerAlignment*/, 0);
+			var protectedRegionDefinitionSymbol = Linker.DefineSymbol(name, SectionKind.ROData, 0/*TypeLayout.NativePointerAlignment*/, 0);
 			var writer1 = new EndianAwareBinaryWriter(protectedRegionDefinitionSymbol.Stream, Architecture.Endianness);
 
 			// 1. Offset to start
@@ -122,7 +119,7 @@ namespace Mosa.Compiler.Framework.Stages
 			{
 				// Store method table pointer of the exception object type
 				// The VES exception runtime will uses this to compare exception object types
-				Linker.Link(LinkType.AbsoluteAddress, NativePatchType, protectedRegionDefinitionSymbol, (int)writer1.Position, exceptionType.FullName + Metadata.TypeDefinition, 0);
+				Linker.Link(LinkType.AbsoluteAddress, NativePatchType, protectedRegionDefinitionSymbol, writer1.Position, Metadata.TypeDefinition + exceptionType.FullName, 0);
 			}
 			else if (handlerType == ExceptionHandlerType.Filter)
 			{

@@ -23,9 +23,9 @@ namespace Mosa.Compiler.Framework.Stages
 		{
 			foreach (var block in BasicBlocks)
 			{
-				for (var node = block.First; !node.IsBlockEndInstruction; node = node.Next)
+				for (var node = block.AfterFirst; !node.IsBlockEndInstruction; node = node.Next)
 				{
-					if (node.IsEmpty)
+					if (node.IsEmptyOrNop)
 						continue;
 
 					if (node.Instruction == IRInstruction.CallStatic
@@ -50,14 +50,16 @@ namespace Mosa.Compiler.Framework.Stages
 			if (newTarget != null)
 			{
 				Replace(node, newTarget);
+
+				//methodCompiler.MethodScanner.MethodInvoked(method, Method);
 			}
 		}
 
 		public void Replace(InstructionNode node, MosaMethod newTarget)
 		{
-			if (trace.Active) trace.Log("*** New Target: " + newTarget);
+			trace?.Log($"*** New Target: {newTarget}");
 
-			if (trace.Active) trace.Log("BEFORE:\t" + node);
+			trace?.Log($"BEFORE:\t{node}");
 
 			if (node.InvokeMethod != null)
 			{
@@ -69,7 +71,7 @@ namespace Mosa.Compiler.Framework.Stages
 				node.Operand1 = Operand.CreateSymbolFromMethod(newTarget, TypeSystem);
 			}
 
-			if (trace.Active) trace.Log("AFTER: \t" + node);
+			trace?.Log($"AFTER: \t{node}");
 		}
 	}
 }

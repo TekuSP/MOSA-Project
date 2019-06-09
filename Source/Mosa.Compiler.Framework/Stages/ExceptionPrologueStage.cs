@@ -27,7 +27,7 @@ namespace Mosa.Compiler.Framework.Stages
 
 		private void InsertExceptionStartInstructions()
 		{
-			foreach (var clause in MethodCompiler.Method.ExceptionHandlers)
+			foreach (var clause in Method.ExceptionHandlers)
 			{
 				if (clause.ExceptionHandlerType == ExceptionHandlerType.Exception)
 				{
@@ -71,11 +71,11 @@ namespace Mosa.Compiler.Framework.Stages
 			{
 				for (var node = block.BeforeLast; !node.IsBlockStartInstruction; node = node.Previous)
 				{
-					if (node.IsEmpty)
+					if (node.IsEmptyOrNop)
 						continue;
 
 					if (!(node.Instruction is CIL.LeaveInstruction))
-						continue;
+						continue;   // FUTURE: Could this be a break instruction instead?
 
 					var target = node.BranchTargets[0];
 

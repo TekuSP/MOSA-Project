@@ -1,9 +1,8 @@
 ﻿// Copyright (c) MOSA Project. Licensed under the New BSD License.
 
-using Mosa.Compiler.Common;
-using Mosa.Compiler.Common.Exceptions;
 using Mosa.Compiler.Framework.CompilerStages;
 using Mosa.Compiler.Framework.IR;
+using Mosa.Compiler.MosaTypeSystem;
 using System.Collections.Generic;
 using System.Diagnostics;
 
@@ -14,27 +13,21 @@ namespace Mosa.Compiler.Framework.Stages
 	/// </summary>
 	public class InlineStage : BaseMethodCompilerStage
 	{
-		private Counter InlinedMethodsCount = new Counter("InlineStage.InlinedMethods");
-		private Counter InlinedCallSitesCount = new Counter("InlineStage.InlinedCallSites");
+		private readonly Counter InlinedMethodsCount = new Counter("InlineStage.MethodsWithInlinedCallSites");
+		private readonly Counter InlinedCallSitesCount = new Counter("InlineStage.InlinedCallSites");
 
 		protected override void Initialize()
 		{
-			Register(InlinedCallSitesCount);
+			Register(InlinedMethodsCount);
 			Register(InlinedCallSitesCount);
 		}
 
 		protected override void Run()
 		{
-			if (HasProtectedRegions)
-				return;
-
-			if (MethodCompiler.Method.IsCompilerGenerated && MethodCompiler.Method.Name == TypeInitializerSchedulerStage.TypeInitializerName)
-				return;
-
 			MethodData.CompileCount++;
-			MethodData.Calls.Clear();
 
 			var callSites = new List<InstructionNode>();
+			var methodCalls = new List<MosaMethod>();
 
 			// find all call sites
 			foreach (var block in BasicBlocks)
@@ -57,9 +50,12 @@ namespace Mosa.Compiler.Framework.Stages
 
 					callSites.Add(node);
 
-					var invoked = MethodCompiler.Compiler.CompilerData.GetCompilerMethodData(invokedMethod);
+					if (methodCalls.Contains(invokedMethod))
+						continue;
 
-					MethodData.Calls.AddIfNew(invokedMethod);
+					methodCalls.Add(invokedMethod);
+
+					var invoked = MethodCompiler.Compiler.CompilerData.GetMethodData(invokedMethod);
 
 					invoked.AddCalledBy(MethodCompiler.Method);
 				}
@@ -70,37 +66,42 @@ namespace Mosa.Compiler.Framework.Stages
 
 			var trace = CreateTraceLog("Inlined");
 
+			int callSiteCount = 0;
+
 			foreach (var callSiteNode in callSites)
 			{
 				var invokedMethod = callSiteNode.Operand1.Method;
 
-				var callee = MethodCompiler.Compiler.CompilerData.GetCompilerMethodData(invokedMethod);
+				var callee = MethodCompiler.Compiler.CompilerData.GetMethodData(invokedMethod);
 
-				if (!callee.CanInline)
+				if (!callee.Inlined)
 					continue;
 
 				// don't inline self
 				if (callee.Method == MethodCompiler.Method)
 					continue;
 
-				var blocks = callee.BasicBlocks;
+				var inlineBlocks = callee.BasicBlocks;
 
-				if (blocks == null)
+				if (inlineBlocks == null)
 					continue;
 
-				if (trace.Active)
-					trace.Log(callee.Method.FullName);
+				trace?.Log(callee.Method.FullName);
 
-				Inline(callSiteNode, blocks);
+				Inline(callSiteNode, inlineBlocks);
+				callSiteCount++;
 
-				if (!BasicBlocks.RuntimeValidation())
-				{
-					throw new CompilerException($"InlineStage: Block Validation after inlining: {invokedMethod} into {Method}");
-				}
+				//if (!BasicBlocks.RuntimeValidation())
+				//{
+				//	throw new CompilerException($"InlineStage: Block Validation after inlining: {invokedMethod} into {Method}");
+				//}
 			}
 
+			// Captures point in time - immediately after inlined blocks were used
+			MethodData.InlineTimestamp = MethodScheduler.GetTimestamp();
+
 			InlinedMethodsCount.Set(1);
-			InlinedCallSitesCount.Set(callSites.Count);
+			InlinedCallSitesCount.Set(callSiteCount);
 		}
 
 		protected void Inline(InstructionNode callSiteNode, BasicBlocks blocks)
@@ -311,14 +312,17 @@ namespace Mosa.Compiler.Framework.Stages
 			{
 				if (operand.StringData != null)
 				{
+					// FUTURE: explore operand re-use
 					mappedOperand = Operand.CreateStringSymbol(operand.Name, operand.StringData, operand.Type.TypeSystem);
 				}
 				else if (operand.Method != null)
 				{
+					// FUTURE: explore operand re-use
 					mappedOperand = Operand.CreateSymbolFromMethod(operand.Method, operand.Type.TypeSystem);
 				}
 				else if (operand.Name != null)
 				{
+					// FUTURE: explore operand re-use
 					mappedOperand = Operand.CreateSymbol(operand.Type, operand.Name);
 				}
 			}
@@ -336,6 +340,7 @@ namespace Mosa.Compiler.Framework.Stages
 			}
 			else if (operand.IsStaticField)
 			{
+				// FUTURE: explore operand re-use
 				mappedOperand = Operand.CreateStaticField(operand.Field, TypeSystem);
 			}
 			else if (operand.IsCPURegister)

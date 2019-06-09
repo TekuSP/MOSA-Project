@@ -14,13 +14,13 @@ namespace Mosa.Compiler.Framework.Linker
 	/// </summary>
 	public sealed class MosaLinker
 	{
-
 		public delegate List<Section> CreateExtraSectionsDelegate();
+
 		public delegate List<ProgramHeader> CreateExtraProgramHeaderDelegate();
 
 		public List<LinkerSymbol> Symbols { get; } = new List<LinkerSymbol>();
 
-		public LinkerSection[] LinkerSections { get; } = new LinkerSection[4];
+		public LinkerSection[] Sections { get; } = new LinkerSection[4];
 
 		public LinkerSymbol EntryPoint { get; set; }
 
@@ -47,6 +47,7 @@ namespace Mosa.Compiler.Framework.Linker
 		private readonly Dictionary<string, LinkerSymbol> symbolLookup = new Dictionary<string, LinkerSymbol>();
 
 		private readonly object _lock = new object();
+		private readonly object _cacheLock = new object();
 
 		public CreateExtraSectionsDelegate CreateExtraSections { get; set; }
 		public CreateExtraProgramHeaderDelegate CreateExtraProgramHeaders { get; set; }
@@ -75,27 +76,25 @@ namespace Mosa.Compiler.Framework.Linker
 
 		public void Emit(Stream stream)
 		{
-			FinalizeLayout();
-
 			elfLinker.Emit(stream);
 		}
 
 		private void AddSection(LinkerSection linkerSection)
 		{
-			LinkerSections[(int)linkerSection.SectionKind] = linkerSection;
+			Sections[(int)linkerSection.SectionKind] = linkerSection;
 		}
 
-		public void Link(LinkType linkType, PatchType patchType, LinkerSymbol patchSymbol, int patchOffset, LinkerSymbol referenceSymbol, int referenceOffset)
+		public void Link(LinkType linkType, PatchType patchType, LinkerSymbol patchSymbol, long patchOffset, LinkerSymbol referenceSymbol, int referenceOffset)
 		{
+			var linkRequest = new LinkRequest(linkType, patchType, patchSymbol, (int)patchOffset, referenceSymbol, referenceOffset);
+
 			lock (_lock)
 			{
-				var linkRequest = new LinkRequest(linkType, patchType, patchSymbol, patchOffset, referenceSymbol, referenceOffset);
-
 				patchSymbol.AddPatch(linkRequest);
 			}
 		}
 
-		public void Link(LinkType linkType, PatchType patchType, string patchSymbolName, int patchOffset, string referenceSymbolName, int referenceOffset)
+		public void Link(LinkType linkType, PatchType patchType, string patchSymbolName, long patchOffset, string referenceSymbolName, int referenceOffset)
 		{
 			var referenceSymbol = GetSymbol(referenceSymbolName);
 			var patchObject = GetSymbol(patchSymbolName);
@@ -103,11 +102,19 @@ namespace Mosa.Compiler.Framework.Linker
 			Link(linkType, patchType, patchObject, patchOffset, referenceSymbol, referenceOffset);
 		}
 
-		public void Link(LinkType linkType, PatchType patchType, LinkerSymbol patchSymbol, int patchOffset, string referenceSymbolName, int referenceOffset)
+		public void Link(LinkType linkType, PatchType patchType, LinkerSymbol patchSymbol, long patchOffset, string referenceSymbolName, int referenceOffset)
 		{
 			var referenceObject = GetSymbol(referenceSymbolName);
 
 			Link(linkType, patchType, patchSymbol, patchOffset, referenceObject, referenceOffset);
+		}
+
+		public bool IsSymbolDefined(string name)
+		{
+			lock (_lock)
+			{
+				return symbolLookup.ContainsKey(name);
+			}
 		}
 
 		public LinkerSymbol GetSymbol(string name)
@@ -138,39 +145,18 @@ namespace Mosa.Compiler.Framework.Linker
 
 					Symbols.Add(symbol);
 					symbolLookup.Add(name, symbol);
-					symbol.IsExport = false;
+					symbol.IsExternalSymbol = false;
 				}
 
 				symbol.Alignment = aligned;
 				symbol.SectionKind = kind;
 
-				var stream = (size == 0) ? new MemoryStream() : new MemoryStream(size);
-				symbol.Stream = Stream.Synchronized(stream);
+				symbol.Stream = (size == 0) ? new MemoryStream() : new MemoryStream(size);
 
 				if (size != 0)
 				{
-					stream.SetLength(size);
+					symbol.Stream.SetLength(size);
 				}
-
-				return symbol;
-			}
-		}
-
-		public LinkerSymbol DefineExternalSymbol(string name, string externalName, SectionKind kind)
-		{
-			lock (_lock)
-			{
-				if (!symbolLookup.TryGetValue(name, out LinkerSymbol symbol))
-				{
-					symbol = new LinkerSymbol(name, 0, kind);
-
-					Symbols.Add(symbol);
-					symbolLookup.Add(name, symbol);
-				}
-
-				symbol.SectionKind = kind;
-				symbol.IsExport = true;
-				symbol.ExportName = externalName;
 
 				return symbol;
 			}
@@ -182,7 +168,7 @@ namespace Mosa.Compiler.Framework.Linker
 			Symbols.Insert(0, symbol);
 		}
 
-		private void FinalizeLayout()
+		public void FinalizeLayout()
 		{
 			LayoutObjectsAndSections();
 			ApplyPatches();
@@ -193,13 +179,16 @@ namespace Mosa.Compiler.Framework.Linker
 			ulong virtualAddress = BaseAddress;
 			uint fileOffset = BaseFileOffset;
 
-			foreach (var linkerSection in LinkerSections)
+			foreach (var section in Sections)
 			{
-				ResolveLayout(linkerSection, fileOffset, virtualAddress);
+				if (!section.IsResolved)
+				{
+					ResolveSectionLayout(section, fileOffset, virtualAddress);
+				}
 
-				uint size = linkerSection.AlignedSize;
+				uint size = section.AlignedSize;
 
-				virtualAddress = linkerSection.VirtualAddress + size;
+				virtualAddress = section.VirtualAddress + size;
 				fileOffset += size;
 			}
 		}
@@ -208,6 +197,9 @@ namespace Mosa.Compiler.Framework.Linker
 		{
 			foreach (var symbol in Symbols)
 			{
+				if (symbol.IsReplaced)
+					continue;
+
 				foreach (var linkRequest in symbol.LinkRequests)
 				{
 					ApplyPatch(linkRequest);
@@ -253,30 +245,32 @@ namespace Mosa.Compiler.Framework.Linker
 			throw new CompilerException($"unknown patch type: {patchType}");
 		}
 
-		private void ResolveLayout(LinkerSection section, uint fileOffset, ulong virtualAddress)
+		private void ResolveSectionLayout(LinkerSection section, uint fileOffset, ulong virtualAddress)
 		{
 			section.VirtualAddress = virtualAddress;
 			section.FileOffset = fileOffset;
+			section.Size = 0;
 
 			foreach (var symbol in Symbols)
 			{
+				if (symbol.IsReplaced)
+					continue;
+
 				if (symbol.SectionKind != section.SectionKind)
 					continue;
 
 				if (symbol.IsResolved)
 					continue;
 
-				if (symbol.IsExport)
+				if (symbol.IsExternalSymbol)
 					continue;
-
-				section.Size = Alignment.AlignUp(section.Size, symbol.Alignment);
 
 				symbol.SectionOffset = section.Size;
 				symbol.VirtualAddress = section.VirtualAddress + section.Size;
-
 				section.Size += symbol.Size;
 			}
 
+			section.Size = Alignment.AlignUp(section.Size, SectionAlignment);
 			section.IsResolved = true;
 		}
 
@@ -284,6 +278,9 @@ namespace Mosa.Compiler.Framework.Linker
 		{
 			foreach (var symbol in Symbols)
 			{
+				if (symbol.IsReplaced)
+					continue;
+
 				if (symbol.SectionKind != section.SectionKind)
 					continue;
 
@@ -315,11 +312,14 @@ namespace Mosa.Compiler.Framework.Linker
 				name += b.ToString("x");
 			}
 
-			var symbol = DefineSymbol(name, SectionKind.ROData, 1, 8);
+			lock (_cacheLock)
+			{
+				var symbol = DefineSymbol(name, SectionKind.ROData, 1, 8);
 
-			symbol.SetData(data);
+				symbol.SetData(data);
 
-			return symbol;
+				return symbol;
+			}
 		}
 
 		public LinkerSymbol GetConstantSymbol(float value)
@@ -333,33 +333,46 @@ namespace Mosa.Compiler.Framework.Linker
 				name += b.ToString("x");
 			}
 
-			var symbol = DefineSymbol(name, SectionKind.ROData, 1, 4);
+			lock (_cacheLock)
+			{
+				var symbol = DefineSymbol(name, SectionKind.ROData, 1, 4);
 
-			symbol.SetData(data);
+				symbol.SetData(data);
 
-			return symbol;
+				return symbol;
+			}
 		}
 
 		public LinkerSymbol GetConstantSymbol(uint value)
 		{
 			string name = "$integer$" + value.ToString("x");
 
-			var symbol = DefineSymbol(name, SectionKind.ROData, 1, 4);
+			var data = BitConverter.GetBytes(value);
 
-			symbol.SetData(BitConverter.GetBytes(value));
+			lock (_cacheLock)
+			{
+				var symbol = DefineSymbol(name, SectionKind.ROData, 1, 4);
 
-			return symbol;
+				symbol.SetData(data);
+
+				return symbol;
+			}
 		}
 
 		public LinkerSymbol GetConstantSymbol(ulong value)
 		{
 			string name = "$long$" + value.ToString("x");
 
-			var symbol = DefineSymbol(name, SectionKind.ROData, 1, 8);
+			var data = BitConverter.GetBytes(value);
 
-			symbol.SetData(BitConverter.GetBytes(value));
+			lock (_cacheLock)
+			{
+				var symbol = DefineSymbol(name, SectionKind.ROData, 1, 8);
 
-			return symbol;
+				symbol.SetData(data);
+
+				return symbol;
+			}
 		}
 
 		public LinkerSymbol GetConstantSymbol(int value)

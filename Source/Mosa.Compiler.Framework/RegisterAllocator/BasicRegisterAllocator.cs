@@ -44,7 +44,9 @@ namespace Mosa.Compiler.Framework.RegisterAllocator
 
 		protected override int CalculatePriorityValue(LiveInterval liveInterval)
 		{
-			return liveInterval.Length | ((int)((int)LiveInterval.AllocationStage.Max - liveInterval.Stage) << 28);
+			var value = liveInterval.Length | ((int)((int)LiveInterval.AllocationStage.Max - liveInterval.Stage) << 20);
+
+			return value;
 		}
 
 		protected void SplitIntervalsAtCallSites()
@@ -66,7 +68,7 @@ namespace Mosa.Compiler.Framework.RegisterAllocator
 
 					var callSite = FindCallSiteInInterval(liveInterval);
 
-					if (callSite == null)
+					if (callSite.IsNull)
 						continue;
 
 					SplitIntervalAtCallSite(liveInterval, callSite);

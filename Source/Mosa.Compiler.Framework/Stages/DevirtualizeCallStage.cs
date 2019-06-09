@@ -11,7 +11,7 @@ namespace Mosa.Compiler.Framework.Stages
 	/// <seealso cref="Mosa.Compiler.Framework.BaseCodeTransformationStage" />
 	public sealed class DevirtualizeCallStage : BaseCodeTransformationStage
 	{
-		private Counter DevirtualizedCount = new Counter("Devirtualize.Calls");
+		private Counter DevirtualizedMethodCallsCount = new Counter("DevirtualizeCallStage.DevirtualizedMethodCalls");
 
 		private TraceLog trace;
 
@@ -19,7 +19,7 @@ namespace Mosa.Compiler.Framework.Stages
 		{
 			base.Initialize();
 
-			Register(DevirtualizedCount);
+			Register(DevirtualizedMethodCallsCount);
 		}
 
 		protected override void PopulateVisitationDictionary()
@@ -54,11 +54,13 @@ namespace Mosa.Compiler.Framework.Stages
 			var operands = node.GetOperands();
 			operands.RemoveAt(0);
 
-			if (trace.Active) trace.Log("De-virtualize: " + method);
+			trace?.Log($"De-virtualize: {method}");
 
-			DevirtualizedCount++;
+			DevirtualizedMethodCallsCount++;
 
 			node.SetInstruction(IRInstruction.CallStatic, node.Result, symbol, operands);
+
+			MethodScanner.MethodInvoked(method, Method);
 		}
 	}
 }

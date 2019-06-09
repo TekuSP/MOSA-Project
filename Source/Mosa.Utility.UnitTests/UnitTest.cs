@@ -10,25 +10,35 @@ namespace Mosa.Utility.UnitTests
 {
 	public class UnitTest
 	{
-		public string FullMethodName { get; set; }
-		public MethodInfo MethodInfo { get; set; }
-		public MosaUnitTestAttribute UnitTestAttribute { get; set; }
-		public object[] Values { get; set; }
+		private readonly UnitTestInfo UnitTestInfo;
+		private readonly LinkerMethodInfo LinkerMethodInfo;
 
-		public object Expected { get; set; }
+		public string FullMethodName { get { return UnitTestInfo.FullMethodName; } }
+		public MethodInfo MethodInfo { get { return UnitTestInfo.MethodInfo; } }
+		public MosaUnitTestAttribute UnitTestAttribute { get { return UnitTestInfo.UnitTestAttribute; } }
+		public object[] Values { get { return UnitTestInfo.Values; } }
+		public object Expected { get { return UnitTestInfo.Expected; } }
+
+		public MosaMethod MosaMethod { get { return LinkerMethodInfo.MosaMethod; } }
+		public IntPtr MosaMethodAddress { get { return LinkerMethodInfo.MosaMethodAddress; } }
+		public string MethodNamespaceName { get { return LinkerMethodInfo.MethodNamespaceName; } }
+		public string MethodTypeName { get { return LinkerMethodInfo.MethodTypeName; } }
+		public string MethodName { get { return LinkerMethodInfo.MethodName; } }
+
 		public object Result { get; set; }
 
 		public UnitTestStatus Status { get; set; }
 
-		public MosaMethod MosaMethod { get; set; }
-		public IntPtr MosaMethodAddress { get; set; }
-
-		public string MethodNamespaceName { get; set; }
-		public string MethodTypeName { get; set; }
-		public string MethodName { get; set; }
-
 		public int UnitTestID { get; set; }
 		public IList<int> SerializedUnitTest { get; set; }
 		public List<byte> SerializedResult { get; set; }
+
+		public UnitTest(UnitTestInfo unitTestInfo, LinkerMethodInfo linkerMethodInfo)
+		{
+			UnitTestInfo = unitTestInfo;
+			LinkerMethodInfo = linkerMethodInfo;
+
+			Status = unitTestInfo.Skip ? UnitTestStatus.Skipped : UnitTestStatus.Pending;
+		}
 	}
 }
